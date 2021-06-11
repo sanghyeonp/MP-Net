@@ -18,18 +18,18 @@ import albumentations as A
 #======================================================= INPUT ========================================================#
 data_path = "/home/sangp/mp_research/new_mp_patches_dataset"
 
-cuda_number = 0
-batch_size = 10
-total_epoch = 20
+# cuda_number = 0
+# batch_size = 10
+# total_epoch = 20
 threshold = 0.5
 testset_number = 1
 
 # criterion = DiceLoss()
-criterion = nn.BCEWithLogitsLoss(reduction='mean', pos_weight=torch.tensor(9))
+# criterion = nn.BCEWithLogitsLoss(reduction='mean', pos_weight=torch.tensor(9))
 
-device = torch.device('cuda:{}'.format(cuda_number) if torch.cuda.is_available() else 'cpu')
-metrics = [	Accuracy(balanced=True, threshold=None).to(device), Recall(threshold=None).to(device), 
-			Precision(threshold=None).to(device), Fscore(threshold=None).to(device), IoU(threshold=None).to(device)]
+# device = torch.device('cuda:{}'.format(cuda_number) if torch.cuda.is_available() else 'cpu')
+# metrics = [	Accuracy(balanced=True, threshold=None).to(device), Recall(threshold=None).to(device), 
+# 			Precision(threshold=None).to(device), Fscore(threshold=None).to(device), IoU(threshold=None).to(device)]
 
 # transformation = A.Compose([A.Flip(p=0.5),
 # 							A.RandomBrightness(limit=[-0.2, 0.2], always_apply=False, p=0.5), 
