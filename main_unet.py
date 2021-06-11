@@ -78,6 +78,7 @@ def main(model, train=True, weights=None, test=True, optimizer='adam', epoch=20,
 		val_set = Microplastic_data(os.path.join(os.getcwd(), 'dataset', 'validation'))
 		val_loader = DataLoader(val_set, batch_size=batch_size, shuffle=False)
 		
+		
 
 	else:	# If training is not being done. Load saved model.
 		if weights is None:
