@@ -4,9 +4,12 @@
 import code
 import os
 import csv
+from datetime import datetime
+from tqdm import tqdm
 import torch
 import torch.nn as nn
 from torch.nn import Conv2d, BatchNorm2d
+from torch.utils.data import DataLoader
 import src.segmentation_models.segmentation_models_pytorch as smp
 from torchvision.models.segmentation import fcn_resnet101, deeplabv3_resnet101
 from src.pytorch_nested_unet.archs import NestedUNet
@@ -14,11 +17,12 @@ from src.functional.loss import DiceLoss, DiceBCELoss
 from src.segmentation_models.segmentation_models_pytorch.utils.metrics import Accuracy, IoU, Recall, Fscore, Precision
 from src.segmentation_models.segmentation_models_pytorch.utils.base import Activation
 from src.functional.preprocess import Microplastic_data
+from src.functional.fit import evaluate, train_model
 
 
 def main(model, train=True, weights=None, test=True, optimizer='adam', epoch=20, batch_size=10, criterion='dice', transformation=None):
 	"""
-	model : choose model from either 'unet', 'fcn', 'deeplabv3', 'nested_unet'
+	model_name : choose model from either 'unet', 'fcn', 'deeplabv3', 'nested_unet'
 			these models will be pre-trained models
 			'unet' will have ResNet101 as encoder backbone
 			'fcn' and 'deeplabv3' will have their classification layer
@@ -27,40 +31,57 @@ def main(model, train=True, weights=None, test=True, optimizer='adam', epoch=20,
 
 	optimizer : choose optimization method from either 'adam', 'sgd'
 	"""
+	
+	torch.manual_seed(0)
+
+	model_name = model
 	if train:
 		# Create saving location
 		"""
 		train log: saves losses and validation scores for every epochs
-
+		saved model: saves the model with lowest validation loss
 		"""
+		time = datetime.now()
+		t = time.strftime("%Y%m%d_%H%M%S")
+		print("Initiating...")
+
 		if not os.path.exists(os.path.join(os.getcwd(), 'train_log')):
 			os.mkdir(os.path.join(os.getcwd(), 'train_log'))
+		if not os.path.exists(os.path.join(os.getcwd(), 'train_log', model_name)):
+			os.mkdir(os.path.join(os.getcwd(), 'train_log', model_name))
+		if not os.path.exists(os.path.join(os.getcwd(), 'saved_model')):
+			os.mkdir(os.path.join(os.getcwd(), 'saved_model'))
+		if not os.path.exists(os.path.join(os.getcwd(), 'saved_model', model_name)):
+			os.mkdir(os.path.join(os.getcwd(), 'saved_model', model_name))
+		
 		TTA = False
 		if transformation is not None:
 			TTA = True
+		
+		filename = '{}_model[{}]_loss[{}]_optim[{}]_epoch[{}]_TTA[{}]'.format(t, model_name, criterion, optimizer, epoch, TTA)
 
-		with open(os.path.join(os.getcwd(), 'train_log', 'model[{}]_loss[{}]_optim[{}]_epoch[{}]_TTA[{}].csv'.format(model, criterion, optimizer, epoch, TTA)), 'wt', newline='') as f1:
+		with open(os.path.join(os.getcwd(), 'train_log', model_name, filename+'.csv'), 'wt', newline='') as f1:
 			f1_writer = csv.writer(f1)
-			f1_writer.writerow(['cv', 'epoch', 'training_loss', 'validation_loss', 'accuracy', 'recall', 'precision', 'fscore', 'iou'])
+			f1_writer.writerow(['Epoch', 'Train loss', 'Val loss', 'Accuracy', 'Recall', 'Precision', 'F1-score', 'IoU'])
 
 			device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 			evaluation_metrics = [	Accuracy(balanced=True, threshold=None).to(device), Recall(threshold=None).to(device), 
 									Precision(threshold=None).to(device), Fscore(threshold=None).to(device), IoU(threshold=None).to(device)]
 
 			# Initialize model
-			if model == 'unet':		# Initialize U-Net model
+			if model_name == 'unet':		# Initialize U-Net model
 				model = smp.Unet(encoder_name="resnet101", in_channels=3, classes=1, encoder_weights="imagenet")
-			elif model == 'fcn':	# Initialize FCN model
+			elif model_name == 'fcn':	# Initialize FCN model
 				model = fcn_resnet101(pretrained=True)
 				# The last convolutional layer is modified to produce a binary output.
 				model.classifier._modules['4'] = Conv2d(512, 1, kernel_size=(1, 1), stride=(1, 1))
 				model.aux_classifier._modules['4'] = Conv2d(256, 1, kernel_size=(1, 1), stride=(1, 1))
-			elif model == 'deeplabv3':	# Initialize Deeplabv3 model
+			elif model_name == 'deeplabv3':	# Initialize Deeplabv3 model
 				model = deeplabv3_resnet101(pretrained=True)
 				# The last convolutional layer is modified to produce a binary output.
 				model.classifier._modules['4'] = Conv2d(256, 1, kernel_size=(1, 1), stride=(1, 1))
 				model.aux_classifier._modules['4'] = Conv2d(256, 1, kernel_size=(1, 1), stride=(1, 1))
-			elif model == 'nested_unet':
+			elif model_name == 'nested_unet':
 				model = NestedUNet(num_classes=1, input_channels=3, deep_supervision=False)
 
 			# Initialize optimizer
@@ -87,9 +108,28 @@ def main(model, train=True, weights=None, test=True, optimizer='adam', epoch=20,
 			train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True)
 			val_set = Microplastic_data(os.path.join(os.getcwd(), 'dataset', 'validation'))
 			val_loader = DataLoader(val_set, batch_size=batch_size, shuffle=False)
-			
-			cv_results = []
-		
+
+			print("Time: {}\nStart training...".format(time))
+			val_loss, val_performances = evaluate(	model=model, device=device, total_epoch=epoch, epoch=0, val_loader=val_loader, 
+													activation=activation, criterion=criterion, metrics=evaluation_metrics
+													)
+			f1_writer.writerow([0, 'NA', val_loss] +  val_performances)
+
+			best_epoch, evaluations = train_model(	model=model, device=device, total_epoch=epoch, 
+													train_loader=train_loader, val_loader=val_loader, 
+													criterion=criterion, optimizer=optimizer, metrics=evaluation_metrics, 
+													activation=activation,	writer=f1_writer, filename=filename,
+													save2=os.path.join(os.getcwd(), 'saved_model', model_name)
+													)
+			print("\nFinished training...\n")
+			tqdm.write("Model saved at best epoch [{}]: \nValidation loss [{:.4f}]\nAccuracy [{:.4f}]\nRecall [{:.4f}]\nPrecision [{:.4f}]\nF1-score [{:.4f}]\nIoU [{:.4f}]".format(best_epoch,
+																																													evaluations[0],
+																																													evaluations[1],
+																																													evaluations[2],
+																																													evaluations[3],
+																																													evaluations[4],
+																																													evaluations[5]
+																																													))
 		
 		if test:	# Train 및 test 다 True 일 때는, training 할때 save된 parameter로 test 하기
 			pass
@@ -110,5 +150,5 @@ if __name__ == '__main__':
 	epoch = 20
 	batch_size = 10
 	transformation = None
-	main(model='fcn')
+	main(model='unet', epoch=5)
 	# code.interact(local=dict(globals(), **locals()))
