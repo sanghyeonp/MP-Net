@@ -17,10 +17,13 @@ from src.functional.loss import DiceLoss, DiceBCELoss
 from src.segmentation_models.segmentation_models_pytorch.utils.metrics import Accuracy, IoU, Recall, Fscore, Precision
 from src.segmentation_models.segmentation_models_pytorch.utils.base import Activation
 from src.functional.preprocess import Microplastic_data
-from src.functional.fit import evaluate, train_model
+from src.functional.fit_unet import evaluate as evaluate_unet
+from src.functional.fit_unet import train_model as train_unet
+from src.functional.fit_torchvision_model import evaluate as evaluate_torchvision
+from src.functional.fit_torchvision_model import train_model as train_torchvision
+from src.functional.evaluation import testset_evaluation
 
-
-def main(model, train=True, weights=None, test=True, optimizer='adam', epoch=20, batch_size=10, criterion='dice', transformation=None):
+def main(model, train=True, weights=None, test=True, optimizer='adam', epoch=20, batch_size=10, criterion='dice', TTA=False):
 	"""
 	model_name : choose model from either 'unet', 'fcn', 'deeplabv3', 'nested_unet'
 			these models will be pre-trained models
@@ -45,22 +48,24 @@ def main(model, train=True, weights=None, test=True, optimizer='adam', epoch=20,
 		t = time.strftime("%Y%m%d_%H%M%S")
 		print("Initiating...")
 
-		if not os.path.exists(os.path.join(os.getcwd(), 'train_log')):
-			os.mkdir(os.path.join(os.getcwd(), 'train_log'))
-		if not os.path.exists(os.path.join(os.getcwd(), 'train_log', model_name)):
-			os.mkdir(os.path.join(os.getcwd(), 'train_log', model_name))
-		if not os.path.exists(os.path.join(os.getcwd(), 'saved_model')):
-			os.mkdir(os.path.join(os.getcwd(), 'saved_model'))
-		if not os.path.exists(os.path.join(os.getcwd(), 'saved_model', model_name)):
-			os.mkdir(os.path.join(os.getcwd(), 'saved_model', model_name))
+		if not os.path.exists(os.path.join(os.getcwd(), 'result')):
+			os.mkdir(os.path.join(os.getcwd(), 'result'))
+		if not os.path.exists(os.path.join(os.getcwd(), 'result', 'train_log')):
+			os.mkdir(os.path.join(os.getcwd(), 'result', 'train_log'))
+		if not os.path.exists(os.path.join(os.getcwd(), 'result', 'train_log', model_name)):
+			os.mkdir(os.path.join(os.getcwd(), 'result', 'train_log', model_name))
+		if not os.path.exists(os.path.join(os.getcwd(), 'result', 'saved_model')):
+			os.mkdir(os.path.join(os.getcwd(), 'result', 'saved_model'))
+		if not os.path.exists(os.path.join(os.getcwd(), 'result', 'saved_model', model_name)):
+			os.mkdir(os.path.join(os.getcwd(), 'result', 'saved_model', model_name))
 		
-		TTA = False
-		if transformation is not None:
-			TTA = True
+		TTA_is = False
+		if TTA is not False:
+			TTA_is = True
 		
-		filename = '{}_model[{}]_loss[{}]_optim[{}]_epoch[{}]_TTA[{}]'.format(t, model_name, criterion, optimizer, epoch, TTA)
+		filename = '{}_model[{}]_loss[{}]_optim[{}]_epoch[{}]_TTA[{}]'.format(t, model_name, criterion, optimizer, epoch, TTA_is)
 
-		with open(os.path.join(os.getcwd(), 'train_log', model_name, filename+'.csv'), 'wt', newline='') as f1:
+		with open(os.path.join(os.getcwd(), 'result', 'train_log', model_name, filename+'.csv'), 'wt', newline='') as f1:
 			f1_writer = csv.writer(f1)
 			f1_writer.writerow(['Epoch', 'Train loss', 'Val loss', 'Accuracy', 'Recall', 'Precision', 'F1-score', 'IoU'])
 
@@ -71,18 +76,22 @@ def main(model, train=True, weights=None, test=True, optimizer='adam', epoch=20,
 			# Initialize model
 			if model_name == 'unet':		# Initialize U-Net model
 				model = smp.Unet(encoder_name="resnet101", in_channels=3, classes=1, encoder_weights="imagenet")
+				evaluate, train_model = evaluate_unet, train_unet
 			elif model_name == 'fcn':	# Initialize FCN model
 				model = fcn_resnet101(pretrained=True)
 				# The last convolutional layer is modified to produce a binary output.
 				model.classifier._modules['4'] = Conv2d(512, 1, kernel_size=(1, 1), stride=(1, 1))
 				model.aux_classifier._modules['4'] = Conv2d(256, 1, kernel_size=(1, 1), stride=(1, 1))
+				evaluate, train_model = evaluate_torchvision, train_torchvision
 			elif model_name == 'deeplabv3':	# Initialize Deeplabv3 model
 				model = deeplabv3_resnet101(pretrained=True)
 				# The last convolutional layer is modified to produce a binary output.
 				model.classifier._modules['4'] = Conv2d(256, 1, kernel_size=(1, 1), stride=(1, 1))
 				model.aux_classifier._modules['4'] = Conv2d(256, 1, kernel_size=(1, 1), stride=(1, 1))
+				evaluate, train_model = evaluate_torchvision, train_torchvision
 			elif model_name == 'nested_unet':
 				model = NestedUNet(num_classes=1, input_channels=3, deep_supervision=False)
+				evaluate, train_model = evaluate_unet, train_unet
 
 			# Initialize optimizer
 			if optimizer == 'adam':
@@ -119,23 +128,46 @@ def main(model, train=True, weights=None, test=True, optimizer='adam', epoch=20,
 													train_loader=train_loader, val_loader=val_loader, 
 													criterion=criterion, optimizer=optimizer, metrics=evaluation_metrics, 
 													activation=activation,	writer=f1_writer, filename=filename,
-													save2=os.path.join(os.getcwd(), 'saved_model', model_name)
+													save2=os.path.join(os.getcwd(), 'result', 'saved_model', model_name)
 													)
-			print("\nFinished training...\n")
-			tqdm.write("Model saved at best epoch [{}]: \nValidation loss [{:.4f}]\nAccuracy [{:.4f}]\nRecall [{:.4f}]\nPrecision [{:.4f}]\nF1-score [{:.4f}]\nIoU [{:.4f}]".format(best_epoch,
-																																													evaluations[0],
-																																													evaluations[1],
-																																													evaluations[2],
-																																													evaluations[3],
-																																													evaluations[4],
-																																													evaluations[5]
-																																													))
+			print("\nFinished training...")
+			print("Time: {}\n".format(datetime.now()))
+			tqdm.write("Model saved at best epoch [{}]: \nValidation loss [{:.4f}]\nAccuracy [{:.4f}]\nRecall [{:.4f}]\nPrecision [{:.4f}]\
+						\nF1-score [{:.4f}]\nIoU [{:.4f}]".format(	best_epoch, evaluations[0], evaluations[1], evaluations[2],
+																	evaluations[3], evaluations[4], evaluations[5]
+																	)
+						)
 		
 		if test:	# Train 및 test 다 True 일 때는, training 할때 save된 parameter로 test 하기
-			pass
+			"Evaluating..."
+			if not os.path.exists(os.path.join(os.getcwd(), 'result', 'pred')):
+				os.mkdir(os.path.join(os.getcwd(), 'result', 'pred'))
+			if not os.path.exists(os.path.join(os.getcwd(), 'result', 'pred', model_name)):
+				os.mkdir(os.path.join(os.getcwd(), 'result', 'pred', model_name))
+			if not os.path.exists(os.path.join(os.getcwd(), 'result', 'pred', model_name, filename)):
+				os.mkdir(os.path.join(os.getcwd(), 'result', 'pred', model_name, filename))
+			if not os.path.exists(os.path.join(os.getcwd(), 'result', 'testset_evaluation')):
+				os.mkdir(os.path.join(os.getcwd(), 'result', 'testset_evaluation'))
+			if not os.path.exists(os.path.join(os.getcwd(), 'result', 'testset_evaluation', model_name)):
+				os.mkdir(os.path.join(os.getcwd(), 'result', 'testset_evaluation', model_name))
+
+
+			with open(os.path.join(os.getcwd(), 'result', 'testset_evaluation', model_name, filename+'.csv'), 'wt', newline='') as f2:
+				f2_writer =csv.writer(f2)
+				f2_writer.writerow(['Image number', 'Accuracy', 'Recall', 'Precision', 'F1-score', 'IoU', '', 'TP', 'FP', 'FN', 'TN'])
+				performances, confusion = testset_evaluation(	model=model, device=device, testset_path=os.path.join(os.getcwd(), 'dataset', 'test'), 
+																weight=os.path.join(os.getcwd(), 'result', 'saved_model', model_name, filename+'.pth'), metrics=evaluation_metrics, 
+																save2=os.path.join(os.getcwd(), 'result', 'pred', model_name, filename), write2=f2_writer, TTA=TTA
+																)
+			print("\nFinished evaluation...\n")
+			print("Accuracy [{:.4f}]\nRecall [{:.4f}]\nPrecision [{:.4f}]\nF1-score [{:.4f}]\nIoU [{:.4f}]\
+					\nTP [{}] | FP [{}] | FN [{}] | TN [{}]".format(performances[0], performances[1], performances[2], performances[3], performances[4],
+																	confusion[0], confusion[1], confusion[2], confusion[3]))
+
 	else:	# If training is not being done. Load saved model.
-		if weights is None:
-			pass # Raise error
+		if test:
+			if weights is None:
+				pass # Raise error
 
 		pass
 
@@ -145,10 +177,6 @@ def main(model, train=True, weights=None, test=True, optimizer='adam', epoch=20,
 
 
 if __name__ == '__main__':
-	# parameters
-	criterion = 'dice'
-	epoch = 20
-	batch_size = 10
-	transformation = None
-	main(model='unet', epoch=5)
+
+	main(model='unet', epoch=6)
 	# code.interact(local=dict(globals(), **locals()))
