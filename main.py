@@ -21,9 +21,10 @@ from src.functional.fit_unet import evaluate as evaluate_unet
 from src.functional.fit_unet import train_model as train_unet
 from src.functional.fit_torchvision_model import evaluate as evaluate_torchvision
 from src.functional.fit_torchvision_model import train_model as train_torchvision
-from src.functional.evaluation import testset_evaluation
+from src.functional.evaluation_unet import testset_evaluation as testset_evaluation_unet
+from src.functional.evaluation_torchvision_model import testset_evaluation as testset_evaluation_torchvision
 
-def main(model, train=True, weights=None, test=True, optimizer='adam', epoch=20, batch_size=10, criterion='dice', TTA=False):
+def main(model, train=True, weights=None, test=True, optimizer='adam', momentum=0.9, lr=0.001, epoch=20, batch_size=10, criterion='dice', TTA=False):
 	"""
 	model_name : choose model from either 'unet', 'fcn', 'deeplabv3', 'nested_unet'
 			these models will be pre-trained models
@@ -36,8 +37,8 @@ def main(model, train=True, weights=None, test=True, optimizer='adam', epoch=20,
 	"""
 	
 	torch.manual_seed(0)
+	model_name, loss_name, optim_name = model, criterion, optimizer
 
-	model_name = model
 	if train:
 		# Create saving location
 		"""
@@ -46,7 +47,7 @@ def main(model, train=True, weights=None, test=True, optimizer='adam', epoch=20,
 		"""
 		time = datetime.now()
 		t = time.strftime("%Y%m%d_%H%M%S")
-		print("Initiating...")
+		print("Initiating... Model [{}] Loss function [{}] Optimizer [{}]".format(model_name, loss_name, optim_name))
 
 		if not os.path.exists(os.path.join(os.getcwd(), 'result')):
 			os.mkdir(os.path.join(os.getcwd(), 'result'))
@@ -64,7 +65,7 @@ def main(model, train=True, weights=None, test=True, optimizer='adam', epoch=20,
 			TTA_is = True
 		
 		filename = '{}_model[{}]_loss[{}]_optim[{}]_epoch[{}]_TTA[{}]'.format(t, model_name, criterion, optimizer, epoch, TTA_is)
-
+		print("File name [{}]\n".format(filename))
 		with open(os.path.join(os.getcwd(), 'result', 'train_log', model_name, filename+'.csv'), 'wt', newline='') as f1:
 			f1_writer = csv.writer(f1)
 			f1_writer.writerow(['Epoch', 'Train loss', 'Val loss', 'Accuracy', 'Recall', 'Precision', 'F1-score', 'IoU'])
@@ -95,9 +96,9 @@ def main(model, train=True, weights=None, test=True, optimizer='adam', epoch=20,
 
 			# Initialize optimizer
 			if optimizer == 'adam':
-				optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+				optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 			elif optimizer == 'sgd':
-				optimizer = torch.optim.SGD(model.parameters(), momentum=0.9, lr=0.001)
+				optimizer = torch.optim.SGD(model.parameters(), momentum=momentum, lr=lr)
 
 			# Initialize criterion
 			if criterion == 'bce':
@@ -131,7 +132,8 @@ def main(model, train=True, weights=None, test=True, optimizer='adam', epoch=20,
 													save2=os.path.join(os.getcwd(), 'result', 'saved_model', model_name)
 													)
 			print("\nFinished training...")
-			print("Time: {}\n".format(datetime.now()))
+			print("Time: {}".format(datetime.now()))
+			print("Training result for [{}]".format(filename))
 			tqdm.write("Model saved at best epoch [{}]: \nValidation loss [{:.4f}]\nAccuracy [{:.4f}]\nRecall [{:.4f}]\nPrecision [{:.4f}]\
 						\nF1-score [{:.4f}]\nIoU [{:.4f}]".format(	best_epoch, evaluations[0], evaluations[1], evaluations[2],
 																	evaluations[3], evaluations[4], evaluations[5]
@@ -151,6 +153,10 @@ def main(model, train=True, weights=None, test=True, optimizer='adam', epoch=20,
 			if not os.path.exists(os.path.join(os.getcwd(), 'result', 'testset_evaluation', model_name)):
 				os.mkdir(os.path.join(os.getcwd(), 'result', 'testset_evaluation', model_name))
 
+			if model_name == 'unet' or model_name == 'nested_unet':
+				testset_evaluation = testset_evaluation_unet
+			elif model_name == 'fcn' or model_name == 'deeplabv3':
+				testset_evaluation = testset_evaluation_torchvision
 
 			with open(os.path.join(os.getcwd(), 'result', 'testset_evaluation', model_name, filename+'.csv'), 'wt', newline='') as f2:
 				f2_writer =csv.writer(f2)
@@ -159,9 +165,10 @@ def main(model, train=True, weights=None, test=True, optimizer='adam', epoch=20,
 																weight=os.path.join(os.getcwd(), 'result', 'saved_model', model_name, filename+'.pth'), metrics=evaluation_metrics, 
 																save2=os.path.join(os.getcwd(), 'result', 'pred', model_name, filename), write2=f2_writer, TTA=TTA
 																)
-			print("\nFinished evaluation...\n")
+			print("\nFinished evaluation...")
+			print("Evaluation result for [{}]".format(filename))
 			print("Accuracy [{:.4f}]\nRecall [{:.4f}]\nPrecision [{:.4f}]\nF1-score [{:.4f}]\nIoU [{:.4f}]\
-					\nTP [{}] | FP [{}] | FN [{}] | TN [{}]".format(performances[0], performances[1], performances[2], performances[3], performances[4],
+					\nTP [{}] | FP [{}] | FN [{}] | TN [{}]\n".format(performances[0], performances[1], performances[2], performances[3], performances[4],
 																	confusion[0], confusion[1], confusion[2], confusion[3]))
 
 	else:	# If training is not being done. Load saved model.
@@ -178,5 +185,8 @@ def main(model, train=True, weights=None, test=True, optimizer='adam', epoch=20,
 
 if __name__ == '__main__':
 
-	main(model='unet', epoch=6)
+	main(model='unet', epoch=5)
+	main(model='fcn', epoch=5)
+	main(model='deeplabv3', epoch=5)
+	main(model='nested_unet', epoch=5)
 	# code.interact(local=dict(globals(), **locals()))
