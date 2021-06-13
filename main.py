@@ -65,7 +65,7 @@ def main(model, train=True, weights=None, test=True, optimizer='adam', momentum=
 			TTA_is = True
 		
 		filename = '{}_model[{}]_loss[{}]_optim[{}]_epoch[{}]_TTA[{}]'.format(t, model_name, criterion, optimizer, epoch, TTA_is)
-		print("File name [{}]\n".format(filename))
+		print("File name [{}]".format(filename))
 		with open(os.path.join(os.getcwd(), 'result', 'train_log', model_name, filename+'.csv'), 'wt', newline='') as f1:
 			f1_writer = csv.writer(f1)
 			f1_writer.writerow(['Epoch', 'Train loss', 'Val loss', 'Accuracy', 'Recall', 'Precision', 'F1-score', 'IoU'])
@@ -119,7 +119,8 @@ def main(model, train=True, weights=None, test=True, optimizer='adam', momentum=
 			val_set = Microplastic_data(os.path.join(os.getcwd(), 'dataset', 'validation'))
 			val_loader = DataLoader(val_set, batch_size=batch_size, shuffle=False)
 
-			print("Time: {}\nStart training...".format(time))
+			print("Time: {}".format(time))
+			print("Start training...\n")
 			val_loss, val_performances = evaluate(	model=model, device=device, total_epoch=epoch, epoch=0, val_loader=val_loader, 
 													activation=activation, criterion=criterion, metrics=evaluation_metrics
 													)
@@ -132,16 +133,16 @@ def main(model, train=True, weights=None, test=True, optimizer='adam', momentum=
 													save2=os.path.join(os.getcwd(), 'result', 'saved_model', model_name)
 													)
 			print("\nFinished training...")
-			print("Time: {}".format(datetime.now()))
-			print("Training result for [{}]".format(filename))
-			tqdm.write("Model saved at best epoch [{}]: \nValidation loss [{:.4f}]\nAccuracy [{:.4f}]\nRecall [{:.4f}]\nPrecision [{:.4f}]\
-						\nF1-score [{:.4f}]\nIoU [{:.4f}]".format(	best_epoch, evaluations[0], evaluations[1], evaluations[2],
+			print("Time: {}\n".format(datetime.now()))
+			print("Training result for [{}]:".format(filename))
+			tqdm.write("Model saved at best epoch [{}]\nValidation loss [{:.4f}]\nAccuracy [{:.4f}]\nRecall [{:.4f}]\nPrecision [{:.4f}]\
+						\nF1-score [{:.4f}]\nIoU [{:.4f}]\n".format(best_epoch, evaluations[0], evaluations[1], evaluations[2],
 																	evaluations[3], evaluations[4], evaluations[5]
 																	)
 						)
 		
 		if test:	# Train 및 test 다 True 일 때는, training 할때 save된 parameter로 test 하기
-			"Evaluating..."
+			print("Evaluating...")
 			if not os.path.exists(os.path.join(os.getcwd(), 'result', 'pred')):
 				os.mkdir(os.path.join(os.getcwd(), 'result', 'pred'))
 			if not os.path.exists(os.path.join(os.getcwd(), 'result', 'pred', model_name)):
@@ -165,8 +166,8 @@ def main(model, train=True, weights=None, test=True, optimizer='adam', momentum=
 																weight=os.path.join(os.getcwd(), 'result', 'saved_model', model_name, filename+'.pth'), metrics=evaluation_metrics, 
 																save2=os.path.join(os.getcwd(), 'result', 'pred', model_name, filename), write2=f2_writer, TTA=TTA
 																)
-			print("\nFinished evaluation...")
-			print("Evaluation result for [{}]".format(filename))
+			print("Finished evaluation...\n")
+			print("Evaluation result for [{}]:".format(filename))
 			print("Accuracy [{:.4f}]\nRecall [{:.4f}]\nPrecision [{:.4f}]\nF1-score [{:.4f}]\nIoU [{:.4f}]\
 					\nTP [{}] | FP [{}] | FN [{}] | TN [{}]\n".format(performances[0], performances[1], performances[2], performances[3], performances[4],
 																	confusion[0], confusion[1], confusion[2], confusion[3]))
@@ -174,10 +175,62 @@ def main(model, train=True, weights=None, test=True, optimizer='adam', momentum=
 	else:	# If training is not being done. Load saved model.
 		if test:
 			if weights is None:
-				pass # Raise error
+				raise AttributeError("Need to provide pre-trained weight if performing only testing.")
+			
+			t = datetime.now().strftime("%Y%m%d_%H%M%S")
+			device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+			evaluation_metrics = [	Accuracy(balanced=True, threshold=None).to(device), Recall(threshold=None).to(device), 
+									Precision(threshold=None).to(device), Fscore(threshold=None).to(device), IoU(threshold=None).to(device)]
 
-		pass
+			TTA_is = False
+			if TTA is not False:
+				TTA_is = True
 
+			filename = '{}_model[{}]_pretrained[{}]_TTA[{}]'.format(t, model_name, weights.split(sep='/')[-1], TTA_is)
+
+			if not os.path.exists(os.path.join(os.getcwd(), 'result', 'pred')):
+				os.mkdir(os.path.join(os.getcwd(), 'result', 'pred'))
+			if not os.path.exists(os.path.join(os.getcwd(), 'result', 'pred', model_name)):
+				os.mkdir(os.path.join(os.getcwd(), 'result', 'pred', model_name))
+			if not os.path.exists(os.path.join(os.getcwd(), 'result', 'pred', model_name, filename)):
+				os.mkdir(os.path.join(os.getcwd(), 'result', 'pred', model_name, filename))
+			if not os.path.exists(os.path.join(os.getcwd(), 'result', 'testset_evaluation')):
+				os.mkdir(os.path.join(os.getcwd(), 'result', 'testset_evaluation'))
+			if not os.path.exists(os.path.join(os.getcwd(), 'result', 'testset_evaluation', model_name)):
+				os.mkdir(os.path.join(os.getcwd(), 'result', 'testset_evaluation', model_name))
+
+			if model_name == 'unet' or model_name == 'nested_unet':
+				if model_name == 'unet':
+					model = smp.Unet(encoder_name="resnet101", in_channels=3, classes=1, encoder_weights=None)
+				elif model_name == 'nested_unet':
+					model = NestedUNet(num_classes=1, input_channels=3, deep_supervision=False)
+				testset_evaluation = testset_evaluation_unet
+			elif model_name == 'fcn' or model_name == 'deeplabv3':
+				if model_name == 'fcn':
+					model = fcn_resnet101(pretrained=True)
+					# The last convolutional layer is modified to produce a binary output.
+					model.classifier._modules['4'] = Conv2d(512, 1, kernel_size=(1, 1), stride=(1, 1))
+					model.aux_classifier._modules['4'] = Conv2d(256, 1, kernel_size=(1, 1), stride=(1, 1))
+				elif model_name == 'deeplabv3':
+					model = deeplabv3_resnet101(pretrained=True)
+					# The last convolutional layer is modified to produce a binary output.
+					model.classifier._modules['4'] = Conv2d(256, 1, kernel_size=(1, 1), stride=(1, 1))
+					model.aux_classifier._modules['4'] = Conv2d(256, 1, kernel_size=(1, 1), stride=(1, 1))
+				testset_evaluation = testset_evaluation_torchvision
+
+			print("Evaluating...")
+			with open(os.path.join(os.getcwd(), 'result', 'testset_evaluation', model_name, filename+'.csv'), 'wt', newline='') as f2:
+				f2_writer =csv.writer(f2)
+				f2_writer.writerow(['Image number', 'Accuracy', 'Recall', 'Precision', 'F1-score', 'IoU', '', 'TP', 'FP', 'FN', 'TN'])
+				performances, confusion = testset_evaluation(	model=model, device=device, testset_path=os.path.join(os.getcwd(), 'dataset', 'test'), 
+																weight=os.path.join(weights), metrics=evaluation_metrics, 
+																save2=os.path.join(os.getcwd(), 'result', 'pred', model_name, filename), write2=f2_writer, TTA=TTA
+																)
+			print("Finished evaluation...\n")
+			print("Evaluation result for [{}]".format(filename))
+			print("Accuracy [{:.4f}]\nRecall [{:.4f}]\nPrecision [{:.4f}]\nF1-score [{:.4f}]\nIoU [{:.4f}]\
+					\nTP [{}] | FP [{}] | FN [{}] | TN [{}]\n".format(performances[0], performances[1], performances[2], performances[3], performances[4],
+																	confusion[0], confusion[1], confusion[2], confusion[3]))
 
 
 	# with open(os.path.join(os.getcwd(), 'train_log', ))
@@ -185,8 +238,10 @@ def main(model, train=True, weights=None, test=True, optimizer='adam', momentum=
 
 if __name__ == '__main__':
 
-	main(model='unet', epoch=5)
-	main(model='fcn', epoch=5)
-	main(model='deeplabv3', epoch=5)
-	main(model='nested_unet', epoch=5)
+	# main(model='unet', train=True, weights=None, test=True, optimizer='sgd', momentum=0.9, lr=0.001, epoch=15, batch_size=10, criterion='dice', TTA=False)
+	main(model='unet', train=False, weights="/home/sangp/bachelor_thesis/git_repo/microplastics/result/saved_model/unet/20210613_192714_model[unet]_loss[dice]_optim[sgd]_epoch[15]_TTA[False].pth", 
+		test=True, optimizer='adam', momentum=0.9, lr=0.001, epoch=20, batch_size=10, criterion='dice', TTA=False)
+	# main(model='fcn', epoch=5)
+	# main(model='deeplabv3', epoch=5)
+	# main(model='nested_unet', epoch=5)
 	# code.interact(local=dict(globals(), **locals()))
