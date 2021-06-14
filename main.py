@@ -5,15 +5,17 @@ import code
 import sys
 import os
 import csv
+import argparse
 from datetime import datetime
 from tqdm import tqdm
-from src.logging import Logger
+import albumentations as A
 import torch
 import torch.nn as nn
 from torch.nn import Conv2d, BatchNorm2d
 from torch.utils.data import DataLoader
-import src.segmentation_models.segmentation_models_pytorch as smp
 from torchvision.models.segmentation import fcn_resnet101, deeplabv3_resnet101
+from src.logging import Logger
+import src.segmentation_models.segmentation_models_pytorch as smp
 from src.pytorch_nested_unet.archs import NestedUNet
 from src.functional.loss import DiceLoss, DiceBCELoss
 from src.segmentation_models.segmentation_models_pytorch.utils.metrics import Accuracy, IoU, Recall, Fscore, Precision
@@ -26,28 +28,58 @@ from src.functional.fit_torchvision_model import train_model as train_torchvisio
 from src.functional.evaluation_unet import testset_evaluation as testset_evaluation_unet
 from src.functional.evaluation_torchvision_model import testset_evaluation as testset_evaluation_torchvision
 
-def main(model, train=True, weights=None, test=True, optimizer='adam', momentum=0.9, lr=0.001, epoch=20, batch_size=10, criterion='dice', TTA=False):
-	"""
-	model_name : choose model from either 'unet', 'fcn', 'deeplabv3', 'nested_unet'
-			these models will be pre-trained models
-			'unet' will have ResNet101 as encoder backbone
-			'fcn' and 'deeplabv3' will have their classification layer
-	
-	criterion : choose loss function from either 'bce', 'dice', 'dicebce'
 
-	optimizer : choose optimization method from either 'adam', 'sgd'
-	"""
+def parse_args():
+	parser = argparse.ArgumentParser(description='Microplastics Segmentation')
+
+	parser.add_argument('--model', type=str, required=True, choices=['unet', 'fcn', 'deeplabv3', 'nested_unet'], 
+	 						help='Specify the model (U-Net, FCN, Deeplabv3, or U-Net++).')
+	parser.add_argument('--train', action='store_true',
+						help='Specify whether to train the model (default=False).')
+	parser.add_argument('--weights', type=str, default=None,
+						help='Provide absolute path of pre-trained weights (default=None).')
+	parser.add_argument('--test', action='store_true',
+						help='Specify whether to evaluate the model (default=False).')
+	parser.add_argument('--epoch', type=int, default=20,
+						help='Specify number of epochs (default=20).')
+	parser.add_argument('--batch_size', type=int, default=10,
+						help='Specify the batch size (default=10).')
+	parser.add_argument('--criterion', type=str, required=True, choices=['bce', 'dice', 'dicebce'], 
+	 					help='Specify the loss function (BCEWithLogits loss, SoftDice loss, DiceBCE loss).')
+	parser.add_argument('--optimizer', type=str, required=True, choices=['sgd', 'adam'], 
+	 					help='Specify the optimizer (SGD, ADAM).')
+	parser.add_argument('--momentum', type=float, default=0.9,
+						help='Specify the momentum value for SGD optimizer (default=0.9).')
+	parser.add_argument('--lr', type=float, default=0.001,
+						help='Specify the learning rate (default=0.001).')
+	parser.add_argument('--TTA', nargs='+', choices=['B', 'C', 'HSV'], default=False,
+						help='Specify the image augmentation being used for test-time augmentation (default=False).')
+
+	args = parser.parse_args()
+	return args
+
+
+def main(model, train, weights, test, optimizer, momentum, lr, epoch, batch_size, criterion, TTA):
+
 	torch.manual_seed(0)
 	model_name, loss_name, optim_name = model, criterion, optimizer
-	TTA_is = False
+	
+	# Initialize image augmentation
+	TTA_is = TTA
+	augs = {'B' : A.RandomBrightness(limit=[-0.2, 0.2], always_apply=False, p=0.5), \
+			'C' : A.RandomContrast(limit=[0.2, 0.6], always_apply=False, p=0.5), \
+			'HSV' : A.HueSaturationValue(hue_shift_limit=[-10, -10], sat_shift_limit=[50, 50], val_shift_limit=[10, 50], always_apply=False, p=0.5) \
+			}
 	if TTA is not False:
-		TTA_is = True
+		TTA = [augs[i] for i in TTA]
 
 	time = datetime.now()
 	t = time.strftime("%Y-%m-%d-%H-%M-%S")
 	if train:
 		filename = '{}_[{}]_[{}]_[{}]_[{}_{}]_TTA[{}]'.format(t, model_name, criterion, optimizer, epoch, lr, TTA_is)
 	else:
+		if weights is None:
+			raise AttributeError("Need to provide pre-trained weight if performing only testing.")
 		filename = '{}_[{}]_pretrained[{}]_TTA[{}]'.format(t, model_name, weights.split(sep='/')[-1], TTA_is)
 
 	if not os.path.exists(os.path.join(os.getcwd(), 'result')):
@@ -110,6 +142,9 @@ def main(model, train=True, weights=None, test=True, optimizer='adam', momentum=
 		print("Initiating... Model [{}] Loss function [{}] Optimizer [{}]".format(model_name, loss_name, optim_name))		
 		print("File name [{}]".format(filename))
 
+		if weights is not None:
+			model.load_state_dict(torch.load(weights))
+
 		with open(os.path.join(os.getcwd(), 'result', 'train_result', model_name, filename+'.csv'), 'wt', newline='') as f1:
 			f1_writer = csv.writer(f1)
 			f1_writer.writerow(['Epoch', 'Train loss', 'Val loss', 'Accuracy', 'Recall', 'Precision', 'F1-score', 'IoU'])
@@ -128,15 +163,19 @@ def main(model, train=True, weights=None, test=True, optimizer='adam', momentum=
 			elif criterion == 'dicebce':
 				criterion = DiceBCELoss()
 
+			# Re-initialize TTA since Random Flip is always used during training.
+			if TTA is not False:
+				TTA.append(A.Flip(p=0.5))
+
 			activation = Activation(activation='sigmoid') # U-Net architecture is not initialized with activation at the end
 
 			model.to(device)
 			criterion.to(device)
 			activation.to(device)
 
-			train_set = Microplastic_data(os.path.join(os.getcwd(), 'dataset', 'train'))
+			train_set = Microplastic_data(path=os.path.join(os.getcwd(), 'dataset', 'train'), transform=TTA)
 			train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True)
-			val_set = Microplastic_data(os.path.join(os.getcwd(), 'dataset', 'validation'))
+			val_set = Microplastic_data(path=os.path.join(os.getcwd(), 'dataset', 'validation'), transform=TTA)
 			val_loader = DataLoader(val_set, batch_size=batch_size, shuffle=False)
 
 			print("Time: {}".format(time))
@@ -170,7 +209,7 @@ def main(model, train=True, weights=None, test=True, optimizer='adam', momentum=
 				performances, confusion = testset_evaluation(	model=model, device=device, testset_path=os.path.join(os.getcwd(), 'dataset', 'test'), \
 																weight=os.path.join(os.getcwd(), 'result', 'model_saved', model_name, filename+'.pth'), \
 																metrics=evaluation_metrics, save2=os.path.join(os.getcwd(), 'result', 'pred_mask', model_name, filename), \
-																write2=f2_writer, TTA=TTA \
+																write2=f2_writer, TTA=A.Compose(TTA, p=0.6) \
 																)
 			print("Finished evaluation...\n")
 			print("Evaluation result for [{}]:".format(filename))
@@ -181,9 +220,6 @@ def main(model, train=True, weights=None, test=True, optimizer='adam', momentum=
 
 	else:	# If training is not being done. Load saved model.
 		if test:
-			if weights is None:
-				raise AttributeError("Need to provide pre-trained weight if performing only testing.")
-
 			print("Evaluating...")
 			with open(os.path.join(os.getcwd(), 'result', 'evaluation', model_name, filename+'.csv'), 'wt', newline='') as f2:
 				f2_writer =csv.writer(f2)
@@ -191,7 +227,7 @@ def main(model, train=True, weights=None, test=True, optimizer='adam', momentum=
 				performances, confusion = testset_evaluation(	model=model, device=device, testset_path=os.path.join(os.getcwd(), 'dataset', 'test'), \
 																weight=weights, metrics=evaluation_metrics, \
 																save2=os.path.join(os.getcwd(), 'result', 'pred_mask', model_name, filename), \
-																write2=f2_writer, TTA=TTA \
+																write2=f2_writer, TTA=A.Compose(TTA, p=0.6) \
 																)
 			print("Finished evaluation...\n")
 			print("Evaluation result for [{}]".format(filename))
@@ -202,20 +238,11 @@ def main(model, train=True, weights=None, test=True, optimizer='adam', momentum=
 
 
 if __name__ == '__main__':
-	################################### INPUTS ###################################
-	model = 'unet'
-	train=True
-	# weights=None
-	weights="/home/sangp/bachelor_thesis/git_repo/microplastics/result/model_saved/unet/2021-06-14-19-23-04_[unet]_[dice]_[adam]_[2_0.001]_TTA[False].pth"
-	test=True
-	epoch=2
-	batch_size=10
-	criterion='dice'
-	optimizer='adam'
-	momentum=0.9
-	lr=0.001
-	TTA=False
-	##############################################################################
-	main(model=model, train=train, weights=weights, test=test, epoch=epoch, batch_size=batch_size, criterion=criterion, optimizer=optimizer, momentum=momentum, lr=lr, TTA=TTA)
+	args = parse_args()
 
+	main(	model=args.model, train=args.train, weights=args.weights, test=args.test, epoch=args.epoch, \
+			batch_size=args.batch_size, criterion=args.criterion, optimizer=args.optimizer, momentum=args.momentum, \
+			lr=args.lr, TTA=args.TTA)
+
+	# python main.py --model 'unet' --train --weights --test --epoch --batch_size --criterion 'bce' --optimizer 'sgd' --momentum --lr --TTA 'B' 'C' 'HSV'
 	# code.interact(local=dict(globals(), **locals()))
