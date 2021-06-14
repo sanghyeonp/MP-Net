@@ -1,12 +1,12 @@
 from PIL import Image
-import os, torch, code
-from torch.utils.data import Dataset, DataLoader
+import os
+from torch.utils.data import Dataset
 from torchvision.transforms import transforms
-import albumentations as A
 import numpy as np
 
+
 class Microplastic_data(Dataset):
-	def __init__(self, path, transform=None, eval=False):
+	def __init__(self, path, transform=None):
 		self.images = [os.path.join(path, fl) for fl in sorted(os.listdir(path)) if os.path.isfile(os.path.join(path, fl))]
 		self.masks = [os.path.join(path, 'labels', mask) for mask in sorted(os.listdir(os.path.join(path, 'labels')))]
 		
@@ -36,6 +36,3 @@ class Microplastic_data(Dataset):
 
 	def getImageName(self, idx):
 		return self.images[idx].split(sep='/')[-1].split(sep='_')
-
-
-# code.interact(local=dict(globals(), **locals()))
