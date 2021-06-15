@@ -17,6 +17,13 @@ Pretrained weights for different models
 Choose to perform evaluation after training or not
 Result will be saved as ..., saved at ...
 
+### Pre-trained weights can be downloaded from below links:
+
+* U-Net : https://drive.google.com/file/d/1nDjRdfTN-ExjWDpKULmEaCkbohpxiMUg/view?usp=sharing
+* FCN :
+* Deeplabv3 :
+* U-Net++ :
+
 ## Evaluation
 How to perform evaluation?
 Result is saved at..., saved as...,
