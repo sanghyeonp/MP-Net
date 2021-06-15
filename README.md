@@ -19,7 +19,7 @@ Result will be saved as ..., saved at ...
 
 ### Pre-trained weights can be downloaded from below links:
 
-* U-Net : https://drive.google.com/file/d/1nDjRdfTN-ExjWDpKULmEaCkbohpxiMUg/view?usp=sharing
+* U-Net : [best_model_unet.pth](https://drive.google.com/file/d/1nDjRdfTN-ExjWDpKULmEaCkbohpxiMUg/view?usp=sharing)
 * FCN :
 * Deeplabv3 :
 * U-Net++ :
