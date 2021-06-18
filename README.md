@@ -1,8 +1,5 @@
 # microplastics
 
-## Contents
-
-
 ## Getting started
 
 Clone the repository.
