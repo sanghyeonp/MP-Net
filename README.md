@@ -85,11 +85,18 @@ The name of the files saved by conducting only evalution will look like below:
 
 ### Pre-trained weights can be downloaded from below links:
 
+<<<<<<< HEAD
 * U-Net : [unet4_best_model.pth](https://drive.google.com/file/d/1wG1WYUtJ49oS0JYVET-33aYvShEKotjf/view?usp=sharing)
 * FCN : [fcn_best_model.pth](https://drive.google.com/file/d/1SFhc1G6H0rXEkOXz7q3GM5HBizfr961T/view?usp=sharing)
 * Deeplabv3 : [deeplabv3_best_model.pth](https://drive.google.com/file/d/1fbCICTgLOc57z5ETe4Fc6slEBZT9VbiY/view?usp=sharing)
 * Nested-UNet : [nested_unet_best_model.pth](https://drive.google.com/file/d/1rTBOZLbK81agYtYVl0WV5Nf2qo6oGFQS/view?usp=sharing)
 
+=======
+* U-Net : [best_model_unet.pth](https://drive.google.com/file/d/1nDjRdfTN-ExjWDpKULmEaCkbohpxiMUg/view?usp=sharing)
+* FCN :
+* Deeplabv3 :
+* U-Net++ :
+>>>>>>> d865d494b0714c2f0b7077cc417d87326d70ae31
 
 
 
