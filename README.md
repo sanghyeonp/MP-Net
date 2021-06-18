@@ -80,7 +80,7 @@ The name of the files saved by conducting only evalution will look like below:
 ```
 
 
-### Pre-trained weights can be downloaded from below links:
+## Pre-trained weights can be downloaded from below links:
 
 * U-Net : [unet4_best_model.pth](https://drive.google.com/file/d/1wG1WYUtJ49oS0JYVET-33aYvShEKotjf/view?usp=sharing)
 * FCN : [fcn_best_model.pth](https://drive.google.com/file/d/1SFhc1G6H0rXEkOXz7q3GM5HBizfr961T/view?usp=sharing)
@@ -88,6 +88,14 @@ The name of the files saved by conducting only evalution will look like below:
 * Nested-UNet : [nested_unet_best_model.pth](https://drive.google.com/file/d/1rTBOZLbK81agYtYVl0WV5Nf2qo6oGFQS/view?usp=sharing)
 
 
+## Citation
+Readers may use the following information to cite our research and the dataset.
+
+Baek, J. Y., de Guzman, M. K., Park, H. M., Park, S., Shin, B., Velickovic, T. C., ... & De Neve, W. (2021). Developing a Segmentation Model for Microscopic Images of Microplastics Isolated from Clams. In Pattern Recognition. ICPR International Workshops and Challenges (pp. 86-97). Springer International Publishing.
+
+The original paper can be found at the following URL:
+
+https://www.springerprofessional.de/en/developing-a-segmentation-model-for-microscopic-images-of-microp/18900224
 
 
 ## Acknowledgement
