@@ -8,9 +8,14 @@ Clone the repository.
 git clone https://github.com/sanghyeonp/microplastics.git
 ```
 
+Go into the directory.
+```shell
+cd microplastics
+```
+
 Install required dependencies using the requirements.txt.
 ```shell
-pip -r requirements.txt
+pip install -r requirements.txt
 ```
 
 Note: The code is written by utilizing and modifying other repositories. Detailed explanation and modification is listed below.
