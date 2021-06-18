@@ -1,7 +1,3 @@
-# loss.py from https://www.kaggle.com/bigironsphere/loss-function-library-keras-pytorch
-# unet arch. and evaluation metrics from https://github.com/qubvel/segmentation_models.pytorch
-# Accuracy in segmentation_models.segmentation_models_pytorch.utils.metrics.py was modified to calculate balanced accuracy
-import code
 import sys
 import os
 import csv
@@ -44,16 +40,16 @@ def parse_args():
 						help='Specify number of epochs (default=20).')
 	parser.add_argument('--batch_size', type=int, default=10,
 						help='Specify the batch size (default=10).')
-	parser.add_argument('--criterion', type=str, required=True, choices=['bce', 'dice', 'dicebce'], 
+	parser.add_argument('--criterion', type=str, choices=['bce', 'dice', 'dicebce'], default='dice', 
 	 					help='Specify the loss function (BCEWithLogits loss, SoftDice loss, DiceBCE loss).')
-	parser.add_argument('--optimizer', type=str, required=True, choices=['sgd', 'adam'], 
+	parser.add_argument('--optimizer', type=str, choices=['sgd', 'adam'], default='sgd', 
 	 					help='Specify the optimizer (SGD, ADAM).')
 	parser.add_argument('--momentum', type=float, default=0.9,
 						help='Specify the momentum value for SGD optimizer (default=0.9).')
 	parser.add_argument('--lr', type=float, default=0.001,
 						help='Specify the learning rate (default=0.001).')
-	parser.add_argument('--TTA', nargs='+', choices=['B', 'C', 'HSV'], default=False,
-						help='Specify the image augmentation being used for test-time augmentation (default=False).')
+	parser.add_argument('--TTA', nargs='+', choices=['B', 'C', 'HSV'], default=None,
+						help='Specify the image augmentation being used for test-time augmentation (default=None).')
 
 	args = parser.parse_args()
 	return args
@@ -70,17 +66,23 @@ def main(model, train, weights, test, optimizer, momentum, lr, epoch, batch_size
 			'C' : A.RandomContrast(limit=[0.2, 0.6], always_apply=False, p=0.5), \
 			'HSV' : A.HueSaturationValue(hue_shift_limit=[-10, -10], sat_shift_limit=[50, 50], val_shift_limit=[10, 50], always_apply=False, p=0.5) \
 			}
-	if TTA is not False:
+	TTA_name = None
+	if TTA is not None:
 		TTA = [augs[i] for i in TTA]
+		for tran in TTA_is:
+			if TTA_name is None:
+				TTA_name = tran
+			else:
+				TTA_name += ('_' + tran)
 
 	time = datetime.now()
 	t = time.strftime("%Y-%m-%d-%H-%M-%S")
 	if train:
-		filename = '{}_[{}]_[{}]_[{}]_[{}_{}]_TTA[{}]'.format(t, model_name, criterion, optimizer, epoch, lr, TTA_is)
+		filename = '{}_[{}]_[{}]_[{}]_[{}_{}]_TTA[{}]'.format(t, model_name, criterion, optimizer, epoch, lr, TTA_name)
 	else:
 		if weights is None:
 			raise AttributeError("Need to provide pre-trained weight if performing only testing.")
-		filename = '{}_[{}]_pretrained[{}]_TTA[{}]'.format(t, model_name, weights.split(sep='/')[-1], TTA_is)
+		filename = '{}_[{}]_pretrained[{}]_TTA[{}]'.format(t, model_name, weights.split(sep='/')[-1], TTA_name)
 
 	if not os.path.exists(os.path.join(os.getcwd(), 'result')):
 		os.mkdir(os.path.join(os.getcwd(), 'result'))
@@ -133,11 +135,6 @@ def main(model, train, weights, test, optimizer, momentum, lr, epoch, batch_size
 		evaluate, train_model, testset_evaluation = evaluate_unet, train_unet, testset_evaluation_unet
 
 	if train:
-		# Create saving location
-		"""
-		train log: saves losses and validation scores for every epochs
-		saved model: saves the model with lowest validation loss
-		"""
 
 		print("Initiating... Model [{}] Loss function [{}] Optimizer [{}]".format(model_name, loss_name, optim_name))		
 		print("File name [{}]".format(filename))
@@ -163,9 +160,12 @@ def main(model, train, weights, test, optimizer, momentum, lr, epoch, batch_size
 			elif criterion == 'dicebce':
 				criterion = DiceBCELoss()
 
-			# Re-initialize TTA since Random Flip is always used during training.
-			if TTA is not False:
-				TTA.append(A.Flip(p=0.5))
+			# Separate TTA for training and testing. TTA used for training always have random Flip.
+			if TTA is not None:
+				TTA4train = TTA.copy()
+				TTA4train.append(A.Flip(p=0.5))
+			else:
+				TTA4train = TTA
 
 			activation = Activation(activation='sigmoid') # U-Net architecture is not initialized with activation at the end
 
@@ -173,9 +173,9 @@ def main(model, train, weights, test, optimizer, momentum, lr, epoch, batch_size
 			criterion.to(device)
 			activation.to(device)
 
-			train_set = Microplastic_data(path=os.path.join(os.getcwd(), 'dataset', 'train'), transform=TTA)
+			train_set = Microplastic_data(path=os.path.join(os.getcwd(), 'dataset', 'train'), transform=TTA4train)
 			train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True)
-			val_set = Microplastic_data(path=os.path.join(os.getcwd(), 'dataset', 'validation'), transform=TTA)
+			val_set = Microplastic_data(path=os.path.join(os.getcwd(), 'dataset', 'validation'), transform=TTA4train)
 			val_loader = DataLoader(val_set, batch_size=batch_size, shuffle=False)
 
 			print("Time: {}".format(time))
@@ -206,11 +206,13 @@ def main(model, train, weights, test, optimizer, momentum, lr, epoch, batch_size
 			with open(os.path.join(os.getcwd(), 'result', 'evaluation', model_name, filename+'.csv'), 'wt', newline='') as f2:
 				f2_writer =csv.writer(f2)
 				f2_writer.writerow(['Image number', 'Accuracy', 'Recall', 'Precision', 'F1-score', 'IoU', '', 'TP', 'FP', 'FN', 'TN'])
+
 				performances, confusion = testset_evaluation(	model=model, device=device, testset_path=os.path.join(os.getcwd(), 'dataset', 'test'), \
 																weight=os.path.join(os.getcwd(), 'result', 'model_saved', model_name, filename+'.pth'), \
 																metrics=evaluation_metrics, save2=os.path.join(os.getcwd(), 'result', 'pred_mask', model_name, filename), \
-																write2=f2_writer, TTA=A.Compose(TTA, p=0.6) \
+																write2=f2_writer, TTA=TTA \
 																)
+		
 			print("Finished evaluation...\n")
 			print("Evaluation result for [{}]:".format(filename))
 			print("Accuracy [{:.4f}]\nRecall [{:.4f}]\nPrecision [{:.4f}]\nF1-score [{:.4f}]\nIoU [{:.4f}]\
@@ -224,11 +226,13 @@ def main(model, train, weights, test, optimizer, momentum, lr, epoch, batch_size
 			with open(os.path.join(os.getcwd(), 'result', 'evaluation', model_name, filename+'.csv'), 'wt', newline='') as f2:
 				f2_writer =csv.writer(f2)
 				f2_writer.writerow(['Image number', 'Accuracy', 'Recall', 'Precision', 'F1-score', 'IoU', '', 'TP', 'FP', 'FN', 'TN'])
+
 				performances, confusion = testset_evaluation(	model=model, device=device, testset_path=os.path.join(os.getcwd(), 'dataset', 'test'), \
 																weight=weights, metrics=evaluation_metrics, \
 																save2=os.path.join(os.getcwd(), 'result', 'pred_mask', model_name, filename), \
-																write2=f2_writer, TTA=A.Compose(TTA, p=0.6) \
+																write2=f2_writer, TTA=TTA \
 																)
+				
 			print("Finished evaluation...\n")
 			print("Evaluation result for [{}]".format(filename))
 			print("Accuracy [{:.4f}]\nRecall [{:.4f}]\nPrecision [{:.4f}]\nF1-score [{:.4f}]\nIoU [{:.4f}]\
@@ -243,6 +247,3 @@ if __name__ == '__main__':
 	main(	model=args.model, train=args.train, weights=args.weights, test=args.test, epoch=args.epoch, \
 			batch_size=args.batch_size, criterion=args.criterion, optimizer=args.optimizer, momentum=args.momentum, \
 			lr=args.lr, TTA=args.TTA)
-
-	# python main.py --model 'unet' --train --weights --test --epoch --batch_size --criterion 'bce' --optimizer 'sgd' --momentum --lr --TTA 'B' 'C' 'HSV'
-	# code.interact(local=dict(globals(), **locals()))

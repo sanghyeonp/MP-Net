@@ -3,6 +3,7 @@ import os
 from torch.utils.data import Dataset
 from torchvision.transforms import transforms
 import numpy as np
+import albumentations as A
 
 
 class Microplastic_data(Dataset):
@@ -25,8 +26,8 @@ class Microplastic_data(Dataset):
 
 	def __getitem__(self, idx):
 		if self.transform is not None:
+			self.transform = A.Compose(self.transform, p=0.6)
 			transformation = self.transform(image=np.asarray(Image.open(self.images[idx]).convert('RGB')), mask=np.asarray(Image.open(self.masks[idx]).convert('RGB')))
-
 			return self.fl_final_transform(Image.fromarray(transformation['image'])), self.mask_final_transform(Image.fromarray(transformation['mask']))
 
 		return self.fl_final_transform(Image.open(self.images[idx]).convert('RGB')), self.mask_final_transform(Image.open(self.masks[idx]).convert('RGB'))

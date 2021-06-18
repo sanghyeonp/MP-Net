@@ -43,6 +43,8 @@ def predict(model, device, fl_path, TTA, patch_size=256):
 	transform = torch_transforms.Compose([torch_transforms.ToTensor(),
 											 	normalize])
 
+
+
 	fl = Image.open(fl_path).convert('RGB')
 
 	adj_fl, added_w, added_h = adjustImg(fl, patch_size=patch_size)
@@ -55,16 +57,16 @@ def predict(model, device, fl_path, TTA, patch_size=256):
 		for x in range(0, w, 256):
 			fl_crop = crop(adj_fl, y, x, 256, 256)
 
-			if TTA is False:
+			if TTA is None:
 				pred_crop = ((model(transform(fl_crop).unsqueeze(0).to(device, dtype=torch.float32)))['out'] > 0.5).float().squeeze(0)
 			else:
 				pred_crops = [((model(transform(fl_crop).unsqueeze(0).to(device, dtype=torch.float32)))['out'] > 0.5).float().squeeze(0)]
 
-				for albu_type in transformation:
+				for albu_type in TTA:
 					aug_transform = A.Compose([ albu_type ])
 					fl_crop_transform = transform(Image.fromarray(aug_transform(image=fl_crop)['image'])).unsqueeze(0).to(device, dtype=torch.float32)
 					pred_crops.append(model(fl_crop_transform)['out'].squeeze(0))
-				pred_crop = ((sum(pred_crops) / (len(transformation) + 1)) > 0.5).float()
+				pred_crop = ((sum(pred_crops) / (len(TTA) + 1)) > 0.5).float()
 
 			if x + 256 == w and y + 256 == h:		# right-bottom corner
 				pred_crop = pred_crop[:, :256 - added_h, :256 - added_w]
