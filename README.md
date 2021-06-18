@@ -1,6 +1,7 @@
 # microplastics
 
 ## Getting started
+Set up an environment.
 
 Clone the repository.
 ```shell

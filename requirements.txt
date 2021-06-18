@@ -1,17 +1,10 @@
 tqdm==4.42.1
-mock==4.0.1
 pretrainedmodels==0.7.4
 opencv_python_headless==4.5.1.48
 albumentations==0.5.2
-pandas==1.0.1
 timm==0.1.20
 torch==1.5.1
-efficientnet_pytorch==0.6.3
-pytest==5.3.5
 torchvision==0.6.0a0+35d732a
 numpy==1.18.1
-fit==0.4.1
-inplace_abn==1.1.0
 Pillow==8.2.0
-PyYAML==5.4.1
 scikit_learn==0.24.2
