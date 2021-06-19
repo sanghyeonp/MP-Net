@@ -1,4 +1,4 @@
-# microplastics
+# MP-UNet
 
 ## Getting started
 Set up an environment.
