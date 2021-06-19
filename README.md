@@ -5,12 +5,12 @@ Set up an environment.
 
 Clone the repository.
 ```shell
-git clone https://github.com/sanghyeonp/microplastics.git
+git clone https://github.com/sanghyeonp/MP-UNet.git
 ```
 
 Go into the directory.
 ```shell
-cd microplastics
+cd MP-UNet
 ```
 
 Install required dependencies using the requirements.txt.
