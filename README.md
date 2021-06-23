@@ -1,4 +1,4 @@
-# MP-UNet
+# MP-Net
 
 ## Getting started
 Set up an environment.
