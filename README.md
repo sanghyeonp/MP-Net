@@ -5,12 +5,12 @@ Set up an environment.
 
 Clone the repository.
 ```shell
-git clone https://github.com/sanghyeonp/MP-UNet.git
+git clone https://github.com/sanghyeonp/MP-Net.git
 ```
 
 Go into the directory.
 ```shell
-cd MP-UNet
+cd MP-Net
 ```
 
 Install required dependencies using the requirements.txt.
