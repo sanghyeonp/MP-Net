@@ -52,12 +52,14 @@ def parse_args():
 						help='Specify the learning rate (default=0.001).')
 	parser.add_argument('--TTA', nargs='+', choices=['B', 'C', 'HSV'], default=None,
 						help='Specify the image augmentation being used for test-time augmentation (default=None).')
+	parser.add_argument('--cuda', type=int, default=0,
+					help='Specify the cuda for GPU usage (default=0).')
 
 	args = parser.parse_args()
 	return args
 
 
-def main(model, train, weights, test, optimizer, momentum, lr, epoch, batch_size, criterion, pos_weight, TTA):
+def main(model, train, weights, test, optimizer, momentum, lr, epoch, batch_size, criterion, pos_weight, TTA, cuda):
 
 	torch.manual_seed(0)
 	model_name, loss_name, optim_name = model, criterion, optimizer
@@ -114,7 +116,7 @@ def main(model, train, weights, test, optimizer, momentum, lr, epoch, batch_size
 		if not os.path.exists(os.path.join(os.getcwd(), 'result', 'stdout', filename)):
 			os.mkdir(os.path.join(os.getcwd(), 'result', 'stdout', filename))
 
-	device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+	device = torch.device('cuda:{}'.format(cuda) if torch.cuda.is_available() else 'cpu')
 	evaluation_metrics = [	Accuracy(balanced=True, threshold=None).to(device), Recall(threshold=None).to(device), 
 							Precision(threshold=None).to(device), Fscore(threshold=None).to(device), IoU(threshold=None).to(device)]
 
@@ -308,5 +310,5 @@ if __name__ == '__main__':
 
 	main(	model=args.model, train=args.train, weights=args.weights, test=args.test, epoch=args.epoch, \
 			batch_size=args.batch_size, criterion=args.criterion, pos_weight=args.pos_weight, optimizer=args.optimizer, momentum=args.momentum, \
-			lr=args.lr, TTA=args.TTA
+			lr=args.lr, TTA=args.TTA, cuda=args.cuda
 		)
