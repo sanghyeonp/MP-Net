@@ -9,7 +9,7 @@ def train(model, device, total_epoch, epoch, train_loader, criterion, optimizer,
 	running_loss = 0
 	n_imgs = 0
 
-	for batch_idx, (fl_imgs, true_masks) in enumerate(tqdm(train_loader, desc="Training epoch [{}/{}]".format(epoch, total_epoch), leave=False)):
+	for batch_idx, (fl_imgs, true_masks) in enumerate(tqdm(train_loader, desc="Batch".format(epoch, total_epoch), leave=False)):
 		n_imgs += fl_imgs.size(0)
 		fl_imgs, true_masks = fl_imgs.to(device, dtype=torch.float32), true_masks.to(device, dtype=torch.float32)
 
@@ -21,10 +21,12 @@ def train(model, device, total_epoch, epoch, train_loader, criterion, optimizer,
 			loss = criterion(pred_masks[i], (~true_mask.bool()).float())
 			running_loss += loss.item()
 			batch_loss += loss
+		del pred_masks
 
 		loss = batch_loss / fl_imgs.size(0)
 		loss.backward()
 		optimizer.step()
+		del loss; del batch_loss
 
 	return running_loss / n_imgs
 
@@ -45,9 +47,11 @@ def evaluate(model, device, total_epoch, epoch, val_loader, activation, criterio
 		for i, true_mask in enumerate(true_masks):
 			loss = criterion(pred_masks[i], (~true_mask.bool()).float())
 			running_loss += loss.item()
+			del loss
 
 			for p, metric in enumerate(metrics):
 				performances[p] += metric((activation(pred_masks[i]) > threshold).float(), (~true_mask.bool()).float()).item()
+		del pred_masks
 
 	if epoch == 0:
 		tqdm.write("Epoch [{}/{}] Val loss [{:.4f}] Accuracy [{:.4f}] Recall [{:.4f}] Precision [{:.4f}] F1-score [{:.4f}] IoU [{:.4f}]".format(epoch, total_epoch,
@@ -61,9 +65,9 @@ def evaluate(model, device, total_epoch, epoch, val_loader, activation, criterio
 	return running_loss / n_imgs, [m / n_imgs for m in performances]
 
 
-def train_model(model, device, total_epoch, train_loader, val_loader, criterion, optimizer, metrics, activation, writer, filename, save2, threshold=0.5):
+def train_model(model, device, total_epoch, train_loaders, val_loader, criterion, optimizer, metrics, activation, cv_n, writer, filename, save2, threshold=0.5):
 	info = {'train_losses':[], 'val_losses':[], 'accuracies':[], 'recalls':[], 'precisions':[], 'fscores':[], 'ious':[]}
-	
+
 	min_val_loss = 1e8
 	best_epoch = 0
 
@@ -71,9 +75,10 @@ def train_model(model, device, total_epoch, train_loader, val_loader, criterion,
 		epoch += 1
 		# Training the model
 		model.train()
-		train_loss = train(	model=model, device=device, total_epoch=total_epoch, epoch=epoch, 
-							train_loader=train_loader, criterion=criterion, optimizer=optimizer, threshold=threshold)
-		info['train_losses'].append(train_loss)
+		for train_loader in train_loaders:
+			train_loss = train(	model=model, device=device, total_epoch=total_epoch, epoch=epoch, 
+								train_loader=train_loader, criterion=criterion, optimizer=optimizer, threshold=threshold)
+			info['train_losses'].append(train_loss)
 
 		# Evaluating the model
 		model.eval()
@@ -82,7 +87,7 @@ def train_model(model, device, total_epoch, train_loader, val_loader, criterion,
 											)
 
 		if val_loss < min_val_loss:
-			torch.save(model.state_dict(), os.path.join(save2, filename+'.pth'))
+			torch.save(model.state_dict(), os.path.join(save2, filename+'_CV[{}].pth'.format(cv_n)))
 			min_val_loss = val_loss
 			best_epoch = epoch
 
@@ -104,6 +109,7 @@ def train_model(model, device, total_epoch, train_loader, val_loader, criterion,
 
 
 		
-		writer.writerow([epoch, info['train_losses'][-1], val_loss] + performances)
+		writer.writerow([cv_n, epoch, info['train_losses'][-1], val_loss] + performances)
+		del performances; del train_loss
 
 	return best_epoch, [info['val_losses'][best_epoch - 1], info['accuracies'][best_epoch - 1], info['recalls'][best_epoch - 1], info['precisions'][best_epoch - 1], info['fscores'][best_epoch - 1], info['ious'][best_epoch - 1]]

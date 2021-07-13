@@ -1,8 +1,6 @@
 import re
-import functools
-import torch
 import torch.nn as nn
-
+import torch
 
 class Activation(nn.Module):
     def __init__(self, activation):
@@ -20,6 +18,7 @@ class Activation(nn.Module):
 
     def forward(self, x):
         return self.activation(x)
+
 
 class BaseObject(nn.Module):
 

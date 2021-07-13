@@ -1,3 +1,4 @@
+import code
 import torch
 import os
 import numpy as np
@@ -87,7 +88,10 @@ def predict(model, device, fl_path, TTA, patch_size=256):
 	return pred.cpu()
 
 
-def testset_evaluation(model, device, testset_path, weight, metrics, save2, write2, TTA):
+def testset_evaluation(model, device, testset_path, weight, metrics, save2, write2, TTA, cv_n=None):
+	if not os.path.exists(save2):
+		os.mkdir(save2)
+
 	model.load_state_dict(torch.load(weight))
 	model.to(device)
 	model.eval()
@@ -109,7 +113,13 @@ def testset_evaluation(model, device, testset_path, weight, metrics, save2, writ
 			performance_score = metric(pred_mask, (~gt_mask.bool()).float()).item()
 			performance_scores.append(performance_score)
 		running_performances += np.array(performance_scores)
-		write2.writerow([fl_name.split(sep='.')[0]] + performance_scores + [''] + [tp, fp, fn, tn])
-	write2.writerow(["Mean"] + list(running_performances/len(fl_img_names)) + [''] + list(running_confusion/len(fl_img_names)))
+		if cv_n is None:
+			write2.writerow([fl_name.split(sep='.')[0]] + performance_scores + [''] + [tp, fp, fn, tn])
+		else:
+			write2.writerow([cv_n, fl_name.split(sep='.')[0]] + performance_scores + [''] + [tp, fp, fn, tn])
+	if cv_n is None:
+		write2.writerow(["Mean"] + list(running_performances/len(fl_img_names)) + [''] + list(running_confusion/len(fl_img_names)))
+	else:
+		write2.writerow([cv_n, "Mean"] + list(running_performances/len(fl_img_names)) + [''] + list(running_confusion/len(fl_img_names)))
 	
 	return list(running_performances/len(fl_img_names)), list(running_confusion/len(fl_img_names))

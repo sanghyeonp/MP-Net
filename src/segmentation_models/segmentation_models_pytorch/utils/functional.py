@@ -1,5 +1,4 @@
 import torch
-import code
 
 
 def _take_channels(*xs, ignore_channels=None):
@@ -61,7 +60,6 @@ def f_score(pr, gt, beta=1, eps=1e-7, threshold=None, ignore_channels=None):
 
     score = ((1 + beta ** 2) * tp + eps) \
             / ((1 + beta ** 2) * tp + beta ** 2 * fn + fp + eps)
-    # score = (2 * (tp / (tp + fp)) * (tp / (tp + fn))) / ((tp / (tp + fp)) + (tp / (tp + fn)))
 
     return score
 
@@ -82,8 +80,6 @@ def accuracy(pr, gt, threshold=0.5, ignore_channels=None):
     tp = torch.sum(gt == pr, dtype=pr.dtype)
     score = tp / gt.view(-1).shape[0]
     return score
-
-
 
 
 def precision(pr, gt, eps=1e-7, threshold=None, ignore_channels=None):
@@ -144,5 +140,3 @@ def balanced_accuracy(pr, gt, eps=1e-7, threshold=0.5, ignore_channels=None):
     fp = torch.sum(gt) - tp
     tnr = (tn + eps) / (tn + fp + eps)
     return (tpr + tnr) / 2
-
-

@@ -17,8 +17,8 @@ class EncoderMixin:
         """Return channels dimensions for each tensor of forward output of encoder"""
         return self._out_channels[: self._depth + 1]
 
-    def set_in_channels(self, in_channels):
-        """Change first convolution chennels"""
+    def set_in_channels(self, in_channels, pretrained=True):
+        """Change first convolution channels"""
         if in_channels == 3:
             return
 
@@ -26,13 +26,25 @@ class EncoderMixin:
         if self._out_channels[0] == 3:
             self._out_channels = tuple([in_channels] + list(self._out_channels)[1:])
 
-        utils.patch_first_conv(model=self, in_channels=in_channels)
+        utils.patch_first_conv(model=self, new_in_channels=in_channels, pretrained=pretrained)
 
     def get_stages(self):
         """Method should be overridden in encoder"""
         raise NotImplementedError
 
-    def make_dilated(self, stage_list, dilation_list):
+    def make_dilated(self, output_stride):
+
+        if output_stride == 16:
+            stage_list=[5,]
+            dilation_list=[2,]
+            
+        elif output_stride == 8:
+            stage_list=[4, 5]
+            dilation_list=[2, 4] 
+
+        else:
+            raise ValueError("Output stride should be 16 or 8, got {}.".format(output_stride))
+        
         stages = self.get_stages()
         for stage_indx, dilation_rate in zip(stage_list, dilation_list):
             utils.replace_strides_with_dilation(
