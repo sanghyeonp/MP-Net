@@ -43,8 +43,6 @@ def predict(model, device, fl_path, TTA, patch_size=256):
 	transform = torch_transforms.Compose([torch_transforms.ToTensor(),
 											 	normalize])
 
-
-
 	fl = Image.open(fl_path).convert('RGB')
 
 	adj_fl, added_w, added_h = adjustImg(fl, patch_size=patch_size)

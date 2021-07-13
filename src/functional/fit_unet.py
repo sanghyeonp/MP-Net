@@ -1,7 +1,6 @@
 import os
 import torch
 from tqdm import tqdm
-import code
 
 
 def train(model, device, total_epoch, epoch, train_loader, criterion, optimizer, threshold=0.5):

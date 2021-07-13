@@ -1,4 +1,3 @@
-import code
 import sys
 import os
 import csv
@@ -119,7 +118,7 @@ def main(model, train, weights, test, optimizer, momentum, lr, epoch, batch_size
 	evaluation_metrics = [	Accuracy(balanced=True, threshold=None).to(device), Recall(threshold=None).to(device), 
 							Precision(threshold=None).to(device), Fscore(threshold=None).to(device), IoU(threshold=None).to(device)]
 
-	if train:
+	if train:	# Train if true.
 		sys.stdout = Logger(os.path.join(os.getcwd(), 'result', 'stdout', filename, filename+'.txt'))
 
 		print("Initiating... Model [{}] Loss function [{}] Optimizer [{}]".format(model_name, loss_name, optim_name))		
@@ -232,7 +231,7 @@ def main(model, train, weights, test, optimizer, momentum, lr, epoch, batch_size
 						best_cv_result[2], best_cv_result[3], best_cv_result[4], best_cv_result[5])
 					)
 		
-		if test:	# Train 및 test 다 True 일 때는, training 할때 save된 parameter로 test 하기
+		if test:	# Evaluate the trained models
 			print("Evaluating...")
 
 			with open(os.path.join(os.getcwd(), 'result', 'evaluation', filename, filename+'.csv'), 'wt', newline='') as f2:
@@ -311,11 +310,3 @@ if __name__ == '__main__':
 			batch_size=args.batch_size, criterion=args.criterion, pos_weight=args.pos_weight, optimizer=args.optimizer, momentum=args.momentum, \
 			lr=args.lr, TTA=args.TTA
 		)
-
-
-# python main.py --model unet --train --test --epoch 2 --batch_size 10 --criterion dice --optimizer adam --lr 0.001
-# python main.py --model unet --train --test --epoch 5 --batch_size 10 --criterion dice --optimizer sgd --momentum 0.9 --lr 0.001
-# python main.py --model deeplabv3 --train --test --epoch 5 --batch_size 10 --criterion dicebce --optimizer sgd --momentum 0.9 --lr 0.02
-# python main.py --model fcn --train --test --epoch 1 --batch_size 10 --criterion bce --optimizer adam --momentum 0.9 --lr 0.001
-
-# python main.py --model unet --test --weights /home/sangp/bachelor_thesis/git_repo/MP-Net/result/model_saved/2021-07-13-02-38-06_[unet]_[2]_[dice_None]_[adam_0.001_0.9]_TTA[None]/2021-07-13-02-38-06_[unet]_[2]_[dice_None]_[adam_0.001_0.9]_TTA[None]_best_CV.pth
