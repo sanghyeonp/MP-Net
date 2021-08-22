@@ -170,6 +170,7 @@ parser.add_argument('--lr', type=float, default=0.001,
 parser.add_argument('--TTA', nargs='+', choices=['B', 'C', 'HSV'], default=None,
                     help='Specify the image augmentation being used for test-time augmentation 
                     (default=None).')
+                    
 parser.add_argument('--cuda', type=int, default=0,
 					help='Specify the cuda for GPU usage (default=0).')
 
