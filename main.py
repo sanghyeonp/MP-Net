@@ -54,12 +54,15 @@ def parse_args():
 						help='Specify the image augmentation being used for test-time augmentation (default=None).')
 	parser.add_argument('--cuda', type=int, default=0,
 					help='Specify the cuda for GPU usage (default=0).')
+	parser.add_argument('--out', type=str, default=None,
+				help='Specify the output directory where results will be saved (default=None).')
+
 
 	args = parser.parse_args()
 	return args
 
 
-def main(model, train, weights, test, optimizer, momentum, lr, epoch, batch_size, criterion, pos_weight, TTA, cuda):
+def main(model, train, weights, test, optimizer, momentum, lr, epoch, batch_size, criterion, pos_weight, TTA, cuda, out):
 
 	torch.manual_seed(0)
 	model_name, loss_name, optim_name = model, criterion, optimizer
@@ -92,36 +95,40 @@ def main(model, train, weights, test, optimizer, momentum, lr, epoch, batch_size
 			raise AttributeError("Need the pre-trained weight if performing only testing.")
 		filename = '{}_[{}]_pretrained[{}]_TTA[{}]'.format(t, model_name, weights.split(sep='/')[-1][:20], TTA_name)
 
-	if not os.path.exists(os.path.join(os.getcwd(), 'result')):
-		os.mkdir(os.path.join(os.getcwd(), 'result'))
-	if not os.path.exists(os.path.join(os.getcwd(), 'result', 'train_result')):
-			os.mkdir(os.path.join(os.getcwd(), 'result', 'train_result'))
-	if not os.path.exists(os.path.join(os.getcwd(), 'result', 'model_saved')):
-		os.mkdir(os.path.join(os.getcwd(), 'result', 'model_saved'))			
-	if not os.path.exists(os.path.join(os.getcwd(), 'result', 'stdout')):
-		os.mkdir(os.path.join(os.getcwd(), 'result', 'stdout'))
-	if not os.path.exists(os.path.join(os.getcwd(), 'result', 'pred_mask')):
-		os.mkdir(os.path.join(os.getcwd(), 'result', 'pred_mask'))
-	if not os.path.exists(os.path.join(os.getcwd(), 'result', 'evaluation')):
-		os.mkdir(os.path.join(os.getcwd(), 'result', 'evaluation'))
-	if not os.path.exists(os.path.join(os.getcwd(), 'result', 'pred_mask', filename)):
-		os.mkdir(os.path.join(os.getcwd(), 'result', 'pred_mask', filename))
-	if not os.path.exists(os.path.join(os.getcwd(), 'result', 'evaluation', filename)):
-		os.mkdir(os.path.join(os.getcwd(), 'result', 'evaluation', filename))
+	if out is None:
+		out = 'result'
+	outDir = os.path.join(os.getcwd(), out)
+
+	if not os.path.exists(outDir):
+		os.mkdir(outDir)
+	if not os.path.exists(os.path.join(outDir, 'train_result')):
+			os.mkdir(os.path.join(outDir, 'train_result'))
+	if not os.path.exists(os.path.join(outDir, 'model_saved')):
+		os.mkdir(os.path.join(outDir, 'model_saved'))			
+	if not os.path.exists(os.path.join(outDir, 'stdout')):
+		os.mkdir(os.path.join(outDir, 'stdout'))
+	if not os.path.exists(os.path.join(outDir, 'pred_mask')):
+		os.mkdir(os.path.join(outDir, 'pred_mask'))
+	if not os.path.exists(os.path.join(outDir, 'evaluation')):
+		os.mkdir(os.path.join(outDir, 'evaluation'))
+	if not os.path.exists(os.path.join(outDir, 'pred_mask', filename)):
+		os.mkdir(os.path.join(outDir, 'pred_mask', filename))
+	if not os.path.exists(os.path.join(outDir, 'evaluation', filename)):
+		os.mkdir(os.path.join(outDir, 'evaluation', filename))
 	if train:
-		if not os.path.exists(os.path.join(os.getcwd(), 'result', 'train_result', filename)):
-			os.mkdir(os.path.join(os.getcwd(), 'result', 'train_result', filename))
-		if not os.path.exists(os.path.join(os.getcwd(), 'result', 'model_saved', filename)):
-			os.mkdir(os.path.join(os.getcwd(), 'result', 'model_saved', filename))
-		if not os.path.exists(os.path.join(os.getcwd(), 'result', 'stdout', filename)):
-			os.mkdir(os.path.join(os.getcwd(), 'result', 'stdout', filename))
+		if not os.path.exists(os.path.join(outDir, 'train_result', filename)):
+			os.mkdir(os.path.join(outDir, 'train_result', filename))
+		if not os.path.exists(os.path.join(outDir, 'model_saved', filename)):
+			os.mkdir(os.path.join(outDir, 'model_saved', filename))
+		if not os.path.exists(os.path.join(outDir, 'stdout', filename)):
+			os.mkdir(os.path.join(outDir, 'stdout', filename))
 
 	device = torch.device('cuda:{}'.format(cuda) if torch.cuda.is_available() else 'cpu')
 	evaluation_metrics = [	Accuracy(balanced=True, threshold=None).to(device), Recall(threshold=None).to(device), 
 							Precision(threshold=None).to(device), Fscore(threshold=None).to(device), IoU(threshold=None).to(device)]
 
 	if train:	# Train if true.
-		sys.stdout = Logger(os.path.join(os.getcwd(), 'result', 'stdout', filename, filename+'.txt'))
+		sys.stdout = Logger(os.path.join(outDir, 'stdout', filename, filename+'.txt'))
 
 		print("Initiating... Model [{}] Loss function [{}] Optimizer [{}]".format(model_name, loss_name, optim_name))		
 		print("File name [{}]\n".format(filename))
@@ -132,7 +139,7 @@ def main(model, train, weights, test, optimizer, momentum, lr, epoch, batch_size
 			DATASET_DIR = config.DATASET_DIR
 		datasets_dir = os.listdir(DATASET_DIR)
 
-		with open(os.path.join(os.getcwd(), 'result', 'train_result', filename, filename+'.csv'), 'wt', newline='') as f1:
+		with open(os.path.join(outDir, 'train_result', filename, filename+'.csv'), 'wt', newline='') as f1:
 			f1_writer = csv.writer(f1)
 			f1_writer.writerow(['Cross validation', 'Epoch', 'Train loss', 'Val loss', 'Accuracy', 'Recall', 'Precision', 'F1-score', 'IoU'])
 
@@ -210,7 +217,7 @@ def main(model, train, weights, test, optimizer, momentum, lr, epoch, batch_size
 														train_loaders=train_loaders, val_loader=val_loader, \
 														criterion=criterion, optimizer=optimizer, metrics=evaluation_metrics, \
 														activation=activation, cv_n=cv,	writer=f1_writer, filename=filename, \
-														save2=os.path.join(os.getcwd(), 'result', 'model_saved', filename)\
+														save2=os.path.join(outDir, 'model_saved', filename)\
 														)
 				tqdm.write("\nFinished training cross-validation [{}]...".format(cv))
 				tqdm.write("Time: {}".format(datetime.now()))
@@ -228,7 +235,7 @@ def main(model, train, weights, test, optimizer, momentum, lr, epoch, batch_size
 			tqdm.write("Training result for [{}]:".format(filename))
 			best_cv_idx = cv_val_loss.index(min(cv_val_loss))
 			best_cv_result = cv_results[best_cv_idx + 1]
-			shutil.copy(os.path.join(os.getcwd(), 'result', 'model_saved', filename, filename+'_CV[{}].pth'.format(best_cv_idx + 1)), os.path.join(os.getcwd(), 'result', 'model_saved', filename, filename+'_best_CV.pth'))
+			shutil.copy(os.path.join(outDir, 'model_saved', filename, filename+'_CV[{}].pth'.format(best_cv_idx + 1)), os.path.join(outDir, 'model_saved', filename, filename+'_best_CV.pth'))
 			tqdm.write("The lowest validation loss obtained during cross-validation [{}] at epoch [{}]:\nValidation loss: {}\nAccuracy: {}\nRecall: {}\nPrecision: {}\nF1-score: {}\nIoU: {}\n".format(best_cv_idx + 1, cv_best_epoch[best_cv_idx], best_cv_result[0], best_cv_result[1], \
 						best_cv_result[2], best_cv_result[3], best_cv_result[4], best_cv_result[5])
 					)
@@ -236,22 +243,22 @@ def main(model, train, weights, test, optimizer, momentum, lr, epoch, batch_size
 		if test:	# Evaluate the trained models
 			print("Evaluating...")
 
-			with open(os.path.join(os.getcwd(), 'result', 'evaluation', filename, filename+'.csv'), 'wt', newline='') as f2:
+			with open(os.path.join(outDir, 'evaluation', filename, filename+'.csv'), 'wt', newline='') as f2:
 				f2_writer =csv.writer(f2)
 				f2_writer.writerow(['Cross validation', 'Image number', 'Accuracy', 'Recall', 'Precision', 'F1-score', 'IoU', '', 'TP', 'FP', 'FN', 'TN'])
 				for cv in tqdm(range(1, 5), desc='Cross-validation', leave=False):
 					_, _ = testset_evaluation(	model=model, device=device, testset_path=os.path.join(os.getcwd(), 'dataset', 'dataset_1'), \
-																	weight=os.path.join(os.getcwd(), 'result', 'model_saved', filename, filename+'_CV[{}].pth'.format(cv)), \
-																	metrics=evaluation_metrics, save2=os.path.join(os.getcwd(), 'result', 'pred_mask', filename, 'CV_{}'.format(cv)), \
+																	weight=os.path.join(outDir, 'model_saved', filename, filename+'_CV[{}].pth'.format(cv)), \
+																	metrics=evaluation_metrics, save2=os.path.join(outDir, 'pred_mask', filename, 'CV_{}'.format(cv)), \
 																	write2=f2_writer, TTA=TTA, cv_n=cv\
 																)
 					if cv == best_cv_idx + 1:
-						with open(os.path.join(os.getcwd(), 'result', 'evaluation', filename, filename+'_best_CV.csv'), 'wt', newline='') as f3:
+						with open(os.path.join(outDir, 'evaluation', filename, filename+'_best_CV.csv'), 'wt', newline='') as f3:
 							f3_writer =csv.writer(f3)
 							f3_writer.writerow(['Image number', 'Accuracy', 'Recall', 'Precision', 'F1-score', 'IoU', '', 'TP', 'FP', 'FN', 'TN'])
 							performances, confusion = testset_evaluation(	model=model, device=device, testset_path=os.path.join(os.getcwd(), 'dataset', 'dataset_1'), \
-																	weight=os.path.join(os.getcwd(), 'result', 'model_saved', filename, filename+'_best_CV.pth'.format(cv)), \
-																	metrics=evaluation_metrics, save2=os.path.join(os.getcwd(), 'result', 'pred_mask', filename, 'best_CV'.format(cv)), \
+																	weight=os.path.join(outDir, 'model_saved', filename, filename+'_best_CV.pth'.format(cv)), \
+																	metrics=evaluation_metrics, save2=os.path.join(outDir, 'pred_mask', filename, 'best_CV'.format(cv)), \
 																	write2=f3_writer, TTA=TTA \
 																)
 			
@@ -287,13 +294,13 @@ def main(model, train, weights, test, optimizer, momentum, lr, epoch, batch_size
 
 		if test:
 			print("Evaluating...")
-			with open(os.path.join(os.getcwd(), 'result', 'evaluation', filename, filename+'.csv'), 'wt', newline='') as f2:
+			with open(os.path.join(outDir, 'evaluation', filename, filename+'.csv'), 'wt', newline='') as f2:
 				f2_writer =csv.writer(f2)
 				f2_writer.writerow(['Image number', 'Accuracy', 'Recall', 'Precision', 'F1-score', 'IoU', '', 'TP', 'FP', 'FN', 'TN'])
 
 				performances, confusion = testset_evaluation(	model=model, device=device, testset_path=os.path.join(os.getcwd(), 'dataset', 'dataset_1'), \
 																weight=weights, metrics=evaluation_metrics, \
-																save2=os.path.join(os.getcwd(), 'result', 'pred_mask', filename), \
+																save2=os.path.join(outDir, 'pred_mask', filename), \
 																write2=f2_writer, TTA=TTA \
 																)
 				
@@ -310,5 +317,5 @@ if __name__ == '__main__':
 
 	main(	model=args.model, train=args.train, weights=args.weights, test=args.test, epoch=args.epoch, \
 			batch_size=args.batch_size, criterion=args.criterion, pos_weight=args.pos_weight, optimizer=args.optimizer, momentum=args.momentum, \
-			lr=args.lr, TTA=args.TTA, cuda=args.cuda
+			lr=args.lr, TTA=args.TTA, cuda=args.cuda, out=args.out
 		)
