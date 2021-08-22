@@ -84,7 +84,8 @@ Both training and testing can be performed using main.py, and a simple run sampl
 python main.py --model unet --train --test --epoch 20 --batch_size 10 --criterion bce --pos_weight 9 --optimizer sgd --momentum 0.9 --lr 0.001
 ```
 
-The result from training will be saved under **./result** which is structured as below.
+The result from training will be saved under **./result**, if *--out* is not given.\
+The directory where the results will be structured as below.
 
 ```tree
 result
@@ -171,6 +172,9 @@ parser.add_argument('--TTA', nargs='+', choices=['B', 'C', 'HSV'], default=None,
                     (default=None).')
 parser.add_argument('--cuda', type=int, default=0,
 					help='Specify the cuda for GPU usage (default=0).')
+
+parser.add_argument('--out', type=str, default=None,
+                    help='Specify the output directory where results will be saved (default=None).')
 ```
 
 
