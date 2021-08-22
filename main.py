@@ -185,9 +185,9 @@ def main(model, train, weights, test, optimizer, momentum, lr, epoch, batch_size
 					model.load_state_dict(torch.load(weights))
 
 				# Initialize optimizer
-				if optimizer == 'adam':
+				if optim_name == 'adam':
 					optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-				elif optimizer == 'sgd':
+				elif optim_name == 'sgd':
 					optimizer = torch.optim.SGD(model.parameters(), momentum=momentum, lr=lr)
 
 				model.to(device)
