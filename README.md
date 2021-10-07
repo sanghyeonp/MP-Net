@@ -152,8 +152,8 @@ parser.add_argument('--batch_size', type=int, default=10,
                     help='Specify the batch size (default=10).')
 
 parser.add_argument('--criterion', type=str, choices=['bce', 'dice', 'dicebce'], default='dice', 
-                    help='Specify the loss function (BCEWithLogits loss => bce, SoftDice loss => dice,
-                    DiceBCE loss=>dicebce).')
+                    help='Specify the loss function (BCEWithLogits loss == bce, SoftDice loss == dice,
+                    DiceBCE loss==dicebce).')
 
 parser.add_argument('--pos_weight', type=float, default=9, 
                     help='Specify the weight to positives when using BCEWithLogits loss. (default=9)')
