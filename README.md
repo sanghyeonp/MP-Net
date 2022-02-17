@@ -211,6 +211,44 @@ The name of the files saved by performing only testing will look like below:
 * Nested-UNet : [nested_unet_best_model.pth](https://drive.google.com/file/d/1rTBOZLbK81agYtYVl0WV5Nf2qo6oGFQS/view?usp=sharing)
 
 
+## Reproducing Results
+The code that can be used to reproduce the results stated in Table 4 and Table 5 are explained below.
+
+Necessary data to reproduce the reuslts can be downloaded from Kaggle. (https://www.kaggle.com/sanghyeonaustinpark/mpset)
+
+
+### **Rerpoducing Testset Performance**
+
+```reproduce testset
+python reproduce.py --reproduce testset \
+                    --data <Path to downloaded testset> \
+                    --model <Name of model to reproduce ['unet', 'fcn', 'deeplabv3', 'unet++']> \
+                    --weights <Path to pre-trained weight for selected model> \
+                    --cuda <Cuda number> \
+                    --out <Path to where the predicted mask will be saved>
+```
+
+Running the testset reproducing code as stated above, it will print metric scores namely Accuracy, Recall, Precision, F1-score, and IoU.
+
+*Please note that the performance results stated in Table 4 are obtained by averaging cross-validation results. Since only the weight with the best performance among the cross-validation for each model is provided, the reproduced result will not be exactly the same, but it will be close to the results reported.*
+
+### **Rerpoducing Spiked Images Recovery Rate**
+
+In order to reproduce recovery rate for spiked images, the mask for the spiked images must be generated which is then used to compute particle counts with ImageJ.
+
+The ImageJ macro for counting number of particles from a mask is shared as `ParticleCount.ijm`.
+
+The mask for spiked images can be generated using `reproduce.py`.
+
+```reproduce Spiked images
+python reproduce.py --reproduce spiked \
+                    --data <Path to downloaded spiked image set> \
+                    --model <Name of model to reproduce ['unet', 'fcn', 'deeplabv3', 'unet++']> \
+                    --weights <Path to pre-trained weight for selected model> \
+                    --cuda <Cuda number> \
+                    --out <Path to where the predicted mask will be saved>
+```
+
 ## Citation
 Readers may use the following information to cite our research and the dataset.
 
