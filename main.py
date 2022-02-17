@@ -9,7 +9,7 @@ from tqdm import tqdm
 import albumentations as A
 import torch
 import torch.nn as nn
-from torch.nn import Conv2d, BatchNorm2d
+from torch.nn import Conv2d
 from torch.utils.data import DataLoader
 from torchvision.models.segmentation import fcn_resnet101, deeplabv3_resnet101
 from src.logging import Logger

@@ -95,15 +95,16 @@ def testset_evaluation(model, device, testset_path, weight, metrics, save2, writ
 	model.to(device)
 	model.eval()
 
-	fl_img_names = sorted([fl for fl in os.listdir(testset_path) if fl != 'labels'])
+	fl_img_names = sorted([fl for fl in os.listdir(testset_path) if not os.path.isdir(os.path.join(testset_path, fl))])
+	mask_names = sorted([os.path.join(testset_path, 'labels', mask) for mask in os.listdir(os.path.join(testset_path, 'labels'))])
 
 	running_performances = np.array([0 for _ in range(len(metrics))], dtype='float64')
 	running_confusion = np.array([0 for _ in range(4)], dtype='float64') 
-	for fl_name in tqdm(fl_img_names, desc="Test set evaluation", leave=False):
+	for i, fl_name in enumerate(tqdm(fl_img_names, desc="Test set evaluation", leave=False)):
 		pred_mask = predict(model=model, device=device, fl_path=os.path.join(testset_path, fl_name), TTA=TTA)
-		save_image((~(pred_mask.bool())).float(), os.path.join(save2, fl_name))
+		save_image((~(pred_mask.bool())).float(), os.path.join(save2, fl_name.split(sep='.')[0] + '.png'))
 
-		gt_mask = torch_transforms.ToTensor()(Image.open(os.path.join(testset_path, 'labels', fl_name)).convert('L'))
+		gt_mask = torch_transforms.ToTensor()(Image.open(mask_names[i]).convert('L'))
 		tn, fp, fn, tp = confusion_matrix((~(gt_mask.bool())).float().flatten().numpy(), pred_mask.flatten().numpy(), labels=[0, 1]).ravel()
 		running_confusion += np.array([tp, fp, fn, tn])
 
@@ -113,9 +114,12 @@ def testset_evaluation(model, device, testset_path, weight, metrics, save2, writ
 			performance_scores.append(performance_score)
 		running_performances += np.array(performance_scores)
 		if cv_n is None:
-			write2.writerow([fl_name.split(sep='.')[0]] + performance_scores + [''] + [tp, fp, fn, tn])
+			if write2 is not None:
+				write2.writerow([fl_name.split(sep='.')[0]] + performance_scores + [''] + [tp, fp, fn, tn])
 		else:
-			write2.writerow([cv_n, fl_name.split(sep='.')[0]] + performance_scores + [''] + [tp, fp, fn, tn])
-	write2.writerow(["Mean"] + list(running_performances/len(fl_img_names)) + [''] + list(running_confusion/len(fl_img_names)))
+			if write2 is not None:
+				write2.writerow([cv_n, fl_name.split(sep='.')[0]] + performance_scores + [''] + [tp, fp, fn, tn])
+	if write2 is not None:
+		write2.writerow(["Mean"] + list(running_performances/len(fl_img_names)) + [''] + list(running_confusion/len(fl_img_names)))
 	
 	return list(running_performances/len(fl_img_names)), list(running_confusion/len(fl_img_names))
