@@ -236,7 +236,7 @@ Running the testset reproducing code as stated above, it will print metric score
 
 In order to reproduce recovery rate for spiked images, the mask for the spiked images must be generated which is then used to compute particle counts with ImageJ.
 
-The ImageJ macro for counting number of particles from a mask is shared as `ParticleCount.ijm`.
+The ImageJ macro for counting number of particles for a mask is shared as `ParticleCount.ijm`.
 
 The mask for spiked images can be generated using `reproduce.py`.
 
