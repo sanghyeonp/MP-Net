@@ -203,12 +203,11 @@ The name of the files saved by performing only testing will look like below:
 "YEAR-MONTH-DAY-HOUR-MINUTE-SECOND_[MODEL NAME]_pretrained[FIRST 20 CHARACTERS OF THE PRETRAINED WEIGHTS NAME]_TTA[AUGMENTATION USED]"
 ```
 
-**Our pre-trained weights can be downloaded from the links below:**
+## Pre-trained weights can be downloaded from Kaggle:
 
-* U-Net : [unet4_best_model.pth](https://drive.google.com/file/d/1wG1WYUtJ49oS0JYVET-33aYvShEKotjf/view?usp=sharing)
-* FCN : [fcn_best_model.pth](https://drive.google.com/file/d/1SFhc1G6H0rXEkOXz7q3GM5HBizfr961T/view?usp=sharing)
-* Deeplabv3 : [deeplabv3_best_model.pth](https://drive.google.com/file/d/1fbCICTgLOc57z5ETe4Fc6slEBZT9VbiY/view?usp=sharing)
-* Nested-UNet : [nested_unet_best_model.pth](https://drive.google.com/file/d/1rTBOZLbK81agYtYVl0WV5Nf2qo6oGFQS/view?usp=sharing)
+https://www.kaggle.com/sanghyeonaustinpark/mpset
+
+*Please note that the weight that best performs among 4 cross-validation is provided.*
 
 
 ## Reproducing Results
@@ -225,6 +224,7 @@ python reproduce.py --reproduce testset \
                     --model <Name of model to reproduce ['unet', 'fcn', 'deeplabv3', 'unet++']> \
                     --weights <Path to pre-trained weight for selected model> \
                     --cuda <Cuda number> \
+                    --TTA \ # Specify if pre-trained weights incorporated TTA
                     --out <Path to where the predicted mask will be saved>
 ```
 

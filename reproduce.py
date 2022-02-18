@@ -27,8 +27,8 @@ def parse_args():
                              help='Specify the model (U-Net, FCN, Deeplabv3, or U-Net++).')
     parser.add_argument('--weights', type=str, default=None,
                         help='Provide absolute path of pre-trained weights (default=None).')
-    parser.add_argument('--TTA', nargs='+', choices=['B', 'C', 'HSV'], default=None,
-                        help='Specify the image augmentation being used for test-time augmentation (default=None).')
+    parser.add_argument('--TTA', dest='TTA', action='store_true', help='Specify if TTA was integrated during training.')
+    parser.set_defaults(TTA=False)
     parser.add_argument('--cuda', type=int, default=0,
                     help='Specify the cuda for GPU usage (default=0).')
     parser.add_argument('--out', type=str, default=None,
@@ -66,25 +66,27 @@ def get_data_path(dataPath):
 
 
 
-def main(reproduce, dataPath, model_name, weight_path, cuda, TTA, save2):
+def main(reproduce, dataPath, model_name, weight_path, cuda, save2, TTA):
     assert weight_path is not None, 'Must specify path to the pre-trained weight.'
 
     device = torch.device('cuda:{}'.format(cuda) if torch.cuda.is_available() else 'cpu')
     evaluation_metrics = [	Accuracy(balanced=True, threshold=None).to(device), Recall(threshold=None).to(device), 
                         Precision(threshold=None).to(device), Fscore(threshold=None).to(device), IoU(threshold=None).to(device)]
-    TTA_is = TTA
-    augs = {'B' : A.RandomBrightness(limit=[-0.2, 0.2], always_apply=False, p=0.5), \
-            'C' : A.RandomContrast(limit=[0.2, 0.6], always_apply=False, p=0.5), \
-            'HSV' : A.HueSaturationValue(hue_shift_limit=[-10, -10], sat_shift_limit=[50, 50], val_shift_limit=[10, 50], always_apply=False, p=0.5) \
-            }
-    TTA_name = None
-    if TTA is not None:
-        TTA = [augs[i] for i in TTA]
-        for tran in TTA_is:
-            if TTA_name is None:
-                TTA_name = tran
-            else:
-                TTA_name += ('_' + tran)
+    if TTA:
+        TTA = ['B', 'C', 'HSV']
+        TTA_is = TTA.copy()
+        augs = {'B' : A.RandomBrightness(limit=[-0.2, 0.2], always_apply=False, p=0.5), \
+                'C' : A.RandomContrast(limit=[0.2, 0.6], always_apply=False, p=0.5), \
+                'HSV' : A.HueSaturationValue(hue_shift_limit=[-10, -10], sat_shift_limit=[50, 50], val_shift_limit=[10, 50], always_apply=False, p=0.5) \
+                }
+        TTA_name = None
+        if TTA is not None:
+            TTA = [augs[i] for i in TTA]
+            for tran in TTA_is:
+                if TTA_name is None:
+                    TTA_name = tran
+                else:
+                    TTA_name += ('_' + tran)
     
     model, testset_evaluation = get_model(model_name)
 
@@ -116,7 +118,7 @@ if __name__ == '__main__':
         dataPath=args.data, 
         model_name=args.model, 
         weight_path=args.weights, 
-        cuda=args.cuda, 
-        TTA=args.TTA, 
+        cuda=args.cuda,
+        TTA=args.TTA,
         save2=args.out
         )
